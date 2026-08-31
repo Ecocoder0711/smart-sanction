@@ -1,0 +1,7 @@
+# Virtual environment for the synthetic-data generator
+.venv/
+venv/
+env/
+
+# Generated synthetic dataset (regenerable via generate_synthetic_data.py)
+*.csv
