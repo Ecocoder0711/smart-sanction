@@ -1,0 +1,2 @@
+"""SMART-SANCTION backend tests."""
+

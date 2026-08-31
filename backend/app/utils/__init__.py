@@ -1,0 +1,2 @@
+"""Reusable deterministic utility functions."""
+
