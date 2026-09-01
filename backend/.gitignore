@@ -27,3 +27,6 @@ Thumbs.db
 # Runtime files
 *.log
 
+# Trained model artifacts (regenerable via data/ml/train_random_forest.py)
+*.joblib
+
