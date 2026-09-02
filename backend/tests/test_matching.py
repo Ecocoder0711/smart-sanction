@@ -63,9 +63,13 @@ def test_authenticated_matching_returns_complete_deterministic_candidates(
     assert all(item["partners"] for item in body["candidates"])
     assert all(item["ml"] is None for item in body["candidates"])
 
+    # Partners are health-ranked, not distance-ranked: the tie-break chain is
+    # (-health_score, distance_km, id). Detailed routing behaviour lives in
+    # test_match_partner_routing.py.
     for candidate in body["candidates"]:
         partner_order = [
-            (item["distance_km"], item["id"]) for item in candidate["partners"]
+            (-item["health_score"], item["distance_km"], item["id"])
+            for item in candidate["partners"]
         ]
         assert partner_order == sorted(partner_order)
 

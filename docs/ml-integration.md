@@ -130,3 +130,10 @@ contains separate `eligibility`, `financial`, `partners`, and nullable
 response reports `"ml_status": "unavailable"` and `"ml": null`; with ML
 enabled and a loadable artifact it reports `"ml_status": "available"` and
 populates `match_score`, `approval_probability`, and `rank`.
+
+The `partners` section is **not** part of the ML layer and is unaffected by
+`ML_AVAILABLE`. Each entry carries a `health_score` alongside `distance_km`,
+produced by the deterministic two-stage router (nearest-K inside the configured
+radius, then a fixed-weight Partner Health Score) described in the backend
+README. No trained model is involved, and the score must not be presented as an
+ML output.

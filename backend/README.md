@@ -4,10 +4,12 @@ SMART-SANCTION is a backend service for discovering suitable concessional loan
 schemes, calculating repayment details, finding nearby channel partners, and
 managing user-owned loan applications.
 
-The current implementation is deterministic and explainable. It combines stored
-applicant data, scheme eligibility rules, financial calculations, and geographic
-partner proximity. An ML integration contract exists for future work, but no ML
-model, prediction logic, or fabricated score is included.
+The core of the implementation is deterministic and explainable: stored
+applicant data, scheme eligibility rules, financial calculations, and
+geographic partner routing all run without a model, and no score is ever
+fabricated. An optional ML layer (`RandomForestAdapter`) adds an approval
+probability and a cosine match score; it is disabled by default and degrades to
+`ml_status: "unavailable"` whenever it cannot run.
 
 ## Current status
 
@@ -23,11 +25,13 @@ Phases 1–7 of the backend are complete:
 - Explainable eligibility checks
 - EMI, interest, and repayment calculations
 - Haversine-based nearby-partner recommendations
+- Two-stage partner routing (nearest-K then Partner Health Score), used by both
+  `GET /api/partners/routed` and `POST /api/match`
 - Deterministic matching orchestration through `POST /api/match`
 - Controlled internal application status transitions
 - Idempotent synthetic/demo data seeding
 - ML adapter protocol with ML disabled by default
-- 50 automated tests
+- 143 automated tests
 
 ## Technology stack
 
@@ -303,7 +307,10 @@ immediately after registration.
   reach the eligibility rules or the ML feature vectors.
 - `GET /api/partners/routed` is unaffected: it depends only on stored
   coordinates and still returns `400 "User location is not configured"` when
-  they are missing.
+  they are missing. Its search radius also stays unbounded — the radius bound
+  described under [Partner routing inside a match](#partner-routing-inside-a-match)
+  applies only to `/api/match`, so `/api/partners/routed` still answers "the K
+  nearest, wherever they are".
 
 ## API endpoints
 
@@ -326,6 +333,7 @@ immediately after registration.
 | `GET`  | `/api/partners/{partner_id}`         | No             | Read one channel partner                          |
 | `GET`  | `/api/partners/nearby`               | No             | Find available partners near supplied coordinates |
 | `GET`  | `/api/partners/recommended`          | Bearer         | Recommend partners from the stored user location  |
+| `GET`  | `/api/partners/routed`               | Bearer         | K nearest partners ranked by Partner Health Score |
 | `POST` | `/api/match`                         | Bearer         | Build deterministic eligible scheme candidates    |
 | `POST` | `/api/applications`                  | Bearer         | Create an owned submitted application             |
 | `GET`  | `/api/applications`                  | Bearer         | List only the current user's applications         |
@@ -352,12 +360,38 @@ income, and coordinates. The service then:
 2. Applies the existing eligibility rules.
 3. Excludes ineligible schemes.
 4. Calculates repayment details for eligible candidates.
-5. Finds available partners inside the configured radius.
+5. Routes available partners (see below).
 6. Returns candidates in deterministic scheme-ID order.
 
 No eligible scheme is a valid HTTP 200 business response with an empty candidate
 list. Missing coordinates or no nearby partners also return valid candidates
 with an empty partner list and a clear explanation.
+
+### Partner routing inside a match
+
+Each candidate carries the same two-stage routed partner list used by
+`GET /api/partners/routed`, with one deliberate difference: Stage 1 is bounded
+by `RECOMMENDED_PARTNER_RADIUS_KM`.
+
+1. **Stage 1 — proximity.** The nearest eligible partners (active, with
+   remaining quota) by Haversine distance, **inside the configured radius**,
+   capped at `MATCH_PARTNER_K` (5).
+2. **Stage 2 — health ranking.** Those candidates are ordered by the
+   deterministic Partner Health Score over NPA, remaining quota, and distance,
+   tie-breaking on `(-health_score, distance_km, id)`.
+
+Each partner therefore carries a `health_score` in `[0, 1]` alongside
+`distance_km`. Neither stage involves a trained model.
+
+`/api/match` never returns a partner beyond the configured radius. The radius
+bound matters because the health score's proximity term saturates past
+`PROXIMITY_REFERENCE_KM`: without it, an applicant with no branch anywhere near
+them would receive the five nearest on Earth, each with a plausible-looking
+score that cannot distinguish 60 km from 8,000 km.
+
+Routing depends only on the applicant's stored coordinates — not on the scheme
+or the requested amount — so every candidate in one response carries the same
+partner list.
 
 ## Application workflow
 
@@ -427,7 +461,7 @@ python -m pytest -q
 Expected result:
 
 ```text
-132 passed
+143 passed
 ```
 
 The automated suite uses an isolated in-memory test database and covers
@@ -440,7 +474,7 @@ fixtures, so the suite gives the same result whether or not the variable is set
 in your shell:
 
 ```bash
-ML_AVAILABLE=true python -m pytest -q   # also 132 passed
+ML_AVAILABLE=true python -m pytest -q   # also 143 passed
 ```
 
 ## Useful maintenance commands

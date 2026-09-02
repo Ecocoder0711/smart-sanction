@@ -15,10 +15,11 @@ from app.schemas.matching import (
     MatchResponse,
     MLResult,
 )
-from app.schemas.partner import RecommendedPartnerResponse
+from app.schemas.partner import RoutedPartnerResponse
 from app.services import (
     calculator_service,
     eligibility_service,
+    partner_routing_service,
     partner_service,
     scheme_service,
 )
@@ -35,11 +36,24 @@ from app.services.ml import (
 def _partner_results(
     session: Session,
     user: User,
-) -> tuple[list[RecommendedPartnerResponse], str]:
-    """Return reusable nearby partners plus a frontend-friendly explanation."""
+) -> tuple[list[RoutedPartnerResponse], str]:
+    """Return reusable routed partners plus a frontend-friendly explanation.
+
+    Two-stage routing, identical to /api/partners/routed except that the
+    geographic stage is bounded by the configured recommendation radius. That
+    bound is deliberate: without it a user with no partner anywhere near them
+    would still be handed the K nearest on Earth, and the health score cannot
+    distinguish 60 km from 8,000 km because its proximity term saturates.
+    """
     settings = get_settings()
+    radius_km = settings.recommended_partner_radius_km
     try:
-        partners = partner_service.recommend_partners_for_user(session, user)
+        partners = partner_routing_service.route_partners_for_user(
+            session,
+            user,
+            k=partner_routing_service.MATCH_PARTNER_K,
+            radius_km=radius_km,
+        )
     except partner_service.UserLocationRequiredError:
         return [], (
             "User location is not configured; nearby partner recommendations "
@@ -47,12 +61,12 @@ def _partner_results(
         )
     if not partners:
         return [], (
-            "No available partners were found within "
-            f"{settings.recommended_partner_radius_km:g} km."
+            f"No available partners were found within {radius_km:g} km."
         )
     return partners, (
-        f"{len(partners)} available partner(s) found within "
-        f"{settings.recommended_partner_radius_km:g} km, ordered by distance."
+        f"{len(partners)} available partner(s) found within {radius_km:g} km, "
+        "ranked by partner health score (non-performing assets, remaining "
+        "quota, and distance)."
     )
 
 
