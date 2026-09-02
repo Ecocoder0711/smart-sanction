@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/india_locations.dart';
 import '../auth/widgets/trust_footer.dart';
+import '../dashboard/dashboard_screen.dart';
 
 class LocationScreen extends StatefulWidget {
   const LocationScreen({super.key});
@@ -138,8 +139,10 @@ class _LocationScreenState extends State<LocationScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('location.details_saved_message'.tr())),
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      (route) => false,
     );
   }
 

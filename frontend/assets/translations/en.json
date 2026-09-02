@@ -64,5 +64,28 @@
     "location_field_hint": "Area, locality, or pincode",
     "continue_button": "Continue",
     "details_saved_message": "Details saved"
+  },
+  "dashboard": {
+    "greeting_hello": "Hello,",
+    "we_offer_header": "We offer",
+    "start_application_cta": "Click here to find your schemes",
+    "more_link": "more...",
+    "list_pending": "List UI Pending",
+    "card_schemes_title": "Schemes",
+    "card_schemes_center": "Find Matches",
+    "card_schemes_subtitle": "Discover suitable loans",
+    "card_calculator_title": "Calculator",
+    "card_calculator_center": "EMI & Loan",
+    "card_calculator_subtitle": "Plan your finances",
+    "card_partners_title": "Partners",
+    "card_partners_center": "Nearby",
+    "card_partners_subtitle": "Find local banks",
+    "section_recommended": "Recommended Schemes",
+    "section_recently_viewed": "Recently Viewed",
+    "section_saved_drafted": "Saved/Drafted Schemes",
+    "profile_edit_snackbar": "Navigate to Profile Edit",
+    "profile_snackbar": "Profile — coming soon",
+    "settings_snackbar": "Settings — coming soon",
+    "feature_coming_soon": "Coming soon"
   }
 }
