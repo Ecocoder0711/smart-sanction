@@ -37,9 +37,12 @@ class RandomForestAdapter:
     def __init__(self, artifact_path: Path = ARTIFACT_PATH) -> None:
         try:
             self._pipeline = joblib.load(artifact_path)
-        except (OSError, EOFError):
-            # Missing, unreadable, or truncated artifact: degrade gracefully
-            # instead of raising during construction.
+        except (OSError, EOFError, AttributeError, ImportError, ValueError):
+            # Missing, unreadable, or truncated artifact, or one pickled by an
+            # incompatible scikit-learn/joblib version (private internals like
+            # ColumnTransformer's remainder handling can change between
+            # versions with no deprecation cycle): degrade gracefully instead
+            # of raising during construction.
             self._pipeline = None
 
     @property
