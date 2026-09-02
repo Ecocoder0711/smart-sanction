@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../auth/login_screen.dart';
+
 class SchemeMatchingScreen extends StatefulWidget {
   const SchemeMatchingScreen({super.key});
 
@@ -22,8 +24,17 @@ class _SchemeMatchingScreenState extends State<SchemeMatchingScreen> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User authentication required to process matches'),
+        SnackBar(
+          content: const Text('User authentication required to process matches'),
+          action: SnackBarAction(
+            label: 'Log In',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
+          ),
         ),
       );
     }
