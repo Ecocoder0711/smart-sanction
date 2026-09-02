@@ -127,7 +127,23 @@
     "emi_prefix": "अनुमानित ईएमआई",
     "calculate_loan_button": "ऋण की गणना करें",
     "match_score_label": "मिलान स्कोर",
-    "previous_step_button": "पिछला चरण",
-    "review_coming_soon": "समीक्षा — जल्द आ रही है"
+    "previous_step_button": "पिछला चरण"
+  },
+  "calculator": {
+    "step_label": "चरण 3 का 4",
+    "header_label": "योजना चयन",
+    "title": "अपनी ईएमआई का अनुमान लगाएं",
+    "subtitle": "चयनित योजना के तहत अपनी सब्सिडी और मासिक भुगतान में वास्तविक समय के अपडेट देखने के लिए ऋण राशि समायोजित करें।",
+    "loan_amount_label": "आवश्यक ऋण राशि",
+    "subsidy_label": "सरकारी सब्सिडी",
+    "subsidy_subtitle": "मूलधन का अनुमानित 25%",
+    "emi_label": "मासिक ईएमआई",
+    "emi_subtitle": "स्थगन के बाद ({rate}% प्रति वर्ष)",
+    "moratorium_label": "स्थगन अवधि",
+    "moratorium_value": "12 महीने",
+    "moratorium_subtitle": "कोई भुगतान आवश्यक नहीं",
+    "footer_text": "इन अनुमानों के आधार पर, आप अपने आवेदन को संसाधित करने के लिए भाग लेने वाले वित्तीय संस्थानों का पता लगाने हेतु आगे बढ़ सकते हैं।",
+    "find_banks_button": "नज़दीकी बैंक खोजें",
+    "nearby_banks_pending": "नज़दीकी बैंक यूआई लंबित है"
   }
 }
