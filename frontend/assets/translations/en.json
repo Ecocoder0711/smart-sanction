@@ -21,5 +21,30 @@
     "full_name_error": "Enter your full name",
     "phone_error": "Enter a valid 10-digit phone number",
     "password_error": "Password must be at least 8 characters"
+  },
+  "eligibility": {
+    "step_of_label": "Step 2 of 5",
+    "header_label": "Intake Details",
+    "title": "Tell us about your needs",
+    "subtitle": "Please provide some basic financial information so we can match you with the right schemes.",
+    "annual_income_label": "Annual Income",
+    "state_label": "State",
+    "state_placeholder": "Select State",
+    "district_label": "District",
+    "district_placeholder": "Select District",
+    "estimated_amount_label": "Estimated Amount Needed",
+    "social_category_label": "Social Category",
+    "category_general": "General",
+    "category_obc": "OBC",
+    "category_sc": "SC",
+    "category_st": "ST",
+    "category_women": "Women",
+    "category_minority": "Minority",
+    "find_schemes_button": "Find My Schemes",
+    "annual_income_error": "Enter a valid annual income",
+    "amount_error": "Enter an amount greater than 0",
+    "state_error": "Select your state",
+    "district_error": "Select your district",
+    "category_error": "Select a category"
   }
 }

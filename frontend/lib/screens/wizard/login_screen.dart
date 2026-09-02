@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import 'eligibility_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -51,8 +52,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _submit() {
-    // UI/navigation only for now; API wiring lands in a later step.
-    _formKey.currentState!.validate();
+    // TEMPORARY: navigates straight to EligibilityScreen to test the UI
+    // flow. Replace with real AuthProvider.login() wiring in a later step.
+    if (_formKey.currentState!.validate()) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+      );
+    }
   }
 
   @override
