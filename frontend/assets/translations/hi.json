@@ -64,5 +64,28 @@
     "location_field_hint": "क्षेत्र, इलाका, या पिनकोड",
     "continue_button": "जारी रखें",
     "details_saved_message": "विवरण सहेजा गया"
+  },
+  "dashboard": {
+    "greeting_hello": "नमस्ते,",
+    "we_offer_header": "हम प्रदान करते हैं",
+    "start_application_cta": "अपनी योजनाएं खोजने के लिए यहां क्लिक करें",
+    "more_link": "अधिक...",
+    "list_pending": "सूची यूआई लंबित है",
+    "card_schemes_title": "योजनाएं",
+    "card_schemes_center": "मिलान खोजें",
+    "card_schemes_subtitle": "उपयुक्त ऋण खोजें",
+    "card_calculator_title": "कैलकुलेटर",
+    "card_calculator_center": "ईएमआई और ऋण",
+    "card_calculator_subtitle": "अपने वित्त की योजना बनाएं",
+    "card_partners_title": "भागीदार",
+    "card_partners_center": "नज़दीकी",
+    "card_partners_subtitle": "स्थानीय बैंक खोजें",
+    "section_recommended": "अनुशंसित योजनाएं",
+    "section_recently_viewed": "हाल ही में देखी गई",
+    "section_saved_drafted": "सहेजी/मसौदा योजनाएं",
+    "profile_edit_snackbar": "प्रोफ़ाइल संपादन पर जाएं",
+    "profile_snackbar": "प्रोफ़ाइल — जल्द आ रहा है",
+    "settings_snackbar": "सेटिंग्स — जल्द आ रही हैं",
+    "feature_coming_soon": "जल्द आ रहा है"
   }
 }
