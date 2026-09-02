@@ -29,6 +29,11 @@ MAX_K = 50
 # (~20,015 km), so Stage 1 is bounded by K alone and never by a radius.
 GLOBAL_SEARCH_RADIUS_KM = 20_100.0
 
+# How many nearest partners /api/match considers before health ranking. Kept
+# separate from DEFAULT_K so tuning the matching flow cannot silently change
+# the /api/partners/routed default, and vice versa.
+MATCH_PARTNER_K = 5
+
 # Partner Health Score reference bounds. Fixed prototype constants derived
 # from the current synthetic partner dataset (backend/seed/partners.py:
 # npa 0.75-14.75%, quota 0-6,000,000) rather than fit per request, so a
@@ -73,8 +78,20 @@ def route_partners_for_user(
     user: User,
     *,
     k: int = DEFAULT_K,
+    radius_km: float | None = None,
 ) -> list[RoutedPartnerResponse]:
     """Return the K nearest eligible partners, ranked by health score.
+
+    `radius_km` bounds Stage 1's geographic neighbourhood. It defaults to
+    GLOBAL_SEARCH_RADIUS_KM, i.e. effectively unbounded, so the result is
+    capped by K alone -- that is what /api/partners/routed asks for ("the K
+    nearest, wherever they are") and its behaviour is unchanged.
+
+    Callers that must not recommend an unreachable branch pass a real radius
+    instead. Without one, a user far from every partner still receives K of
+    them: the proximity term saturates beyond PROXIMITY_REFERENCE_KM, so a
+    branch 8,000 km away scores no worse than one 60 km away and the health
+    score cannot express the difference.
 
     Raises partner_service.UserLocationRequiredError when the user has no
     stored coordinates, matching the existing recommendation behaviour.
@@ -85,12 +102,14 @@ def route_partners_for_user(
     # Stage 1 -- geographic neighbourhood. find_nearby_partners already
     # excludes inactive and zero-quota partners, computes Haversine
     # distance, and orders by (distance_km, id), so taking the first k rows
-    # is exactly the K nearest eligible partners.
+    # is exactly the K nearest eligible partners inside the radius.
     nearest = partner_service.find_nearby_partners(
         session,
         latitude=float(user.latitude),
         longitude=float(user.longitude),
-        radius_km=GLOBAL_SEARCH_RADIUS_KM,
+        radius_km=(
+            GLOBAL_SEARCH_RADIUS_KM if radius_km is None else radius_km
+        ),
         limit=k,
     )
 

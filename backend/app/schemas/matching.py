@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.calculator import CalculatorResponse
-from app.schemas.partner import RecommendedPartnerResponse
+from app.schemas.partner import RoutedPartnerResponse
 from app.schemas.scheme import SchemeResponse
 
 
@@ -41,7 +41,10 @@ class MatchCandidate(BaseModel):
     eligibility: CandidateEligibility
     requested_amount: Decimal
     financial: CalculatorResponse
-    partners: list[RecommendedPartnerResponse] = Field(default_factory=list)
+    # RoutedPartnerResponse, not its RecommendedPartnerResponse parent: FastAPI
+    # serialises strictly against the declared type, so the parent annotation
+    # would silently drop health_score from the response body.
+    partners: list[RoutedPartnerResponse] = Field(default_factory=list)
     partner_message: str
     ml: MLResult | None = None
 
