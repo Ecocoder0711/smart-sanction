@@ -1,5 +1,6 @@
 """Authenticated current-user profile and ownership tests."""
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.helpers import register_and_login
@@ -62,3 +63,56 @@ def test_update_own_profile_and_reject_duplicate_phone(client: TestClient) -> No
     assert duplicate.status_code == 409
     assert forbidden_field.status_code == 422
 
+
+def test_profile_location_and_gender_are_persisted_and_serialized(
+    client: TestClient,
+) -> None:
+    _, headers = register_and_login(client, "9880000015")
+
+    updated = client.put(
+        "/api/users/me",
+        headers=headers,
+        json={
+            "state": "Madhya Pradesh",
+            "district": "Bhopal",
+            "gender": "Female",
+        },
+    )
+    user_profile = client.get("/api/users/me", headers=headers)
+    auth_profile = client.get("/api/auth/me", headers=headers)
+
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["state"] == "Madhya Pradesh"
+    assert updated.json()["district"] == "Bhopal"
+    assert updated.json()["gender"] == "FEMALE"
+    assert user_profile.status_code == 200
+    assert user_profile.json()["state"] == "Madhya Pradesh"
+    assert user_profile.json()["district"] == "Bhopal"
+    assert user_profile.json()["gender"] == "FEMALE"
+    assert auth_profile.status_code == 200
+    assert auth_profile.json()["state"] == "Madhya Pradesh"
+    assert auth_profile.json()["district"] == "Bhopal"
+    assert auth_profile.json()["gender"] == "FEMALE"
+
+
+@pytest.mark.parametrize(
+    ("phone", "invalid_category"),
+    [
+        ("9880000016", "Women"),
+        ("9880000017", "Minority"),
+    ],
+)
+def test_profile_update_rejects_non_caste_categories(
+    client: TestClient,
+    phone: str,
+    invalid_category: str,
+) -> None:
+    _, headers = register_and_login(client, phone)
+
+    response = client.put(
+        "/api/users/me",
+        headers=headers,
+        json={"category": invalid_category},
+    )
+
+    assert response.status_code == 422

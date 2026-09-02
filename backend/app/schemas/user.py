@@ -51,6 +51,8 @@ class UserUpdate(BaseModel):
     )
     category: ApplicantCategory | None = None
     gender: Gender | None = None
+    state: str | None = Field(default=None, min_length=1, max_length=100)
+    district: str | None = Field(default=None, min_length=1, max_length=100)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
@@ -84,5 +86,7 @@ class UserResponse(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    state: str | None = None
+    district: str | None = None
     created_at: datetime
     updated_at: datetime

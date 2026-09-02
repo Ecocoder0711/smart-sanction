@@ -54,6 +54,8 @@ class User(Base):
         default=Gender.OTHER.value,
         server_default=Gender.OTHER.value,
     )
+    state: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
