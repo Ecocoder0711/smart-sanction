@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/scheme.dart';
+import '../calculator/emi_calculator_screen.dart';
 import '../scheme_matching/scheme_intake_screen.dart';
 import 'category_list_screen.dart';
 
@@ -79,6 +80,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SchemeIntakeScreen()),
+    );
+  }
+
+  void _goToCalculator() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EmiCalculatorScreen()),
     );
   }
 
@@ -240,8 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               centerLabel: 'dashboard.card_calculator_center'.tr(),
               subtitle: 'dashboard.card_calculator_subtitle'.tr(),
               isDark: true,
-              onTap: () =>
-                  _showComingSoon('dashboard.feature_coming_soon'.tr()),
+              onTap: _goToCalculator,
             ),
           ),
           const SizedBox(width: 8),

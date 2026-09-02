@@ -127,7 +127,23 @@
     "emi_prefix": "Estimated EMI",
     "calculate_loan_button": "Calculate Loan",
     "match_score_label": "MATCH SCORE",
-    "previous_step_button": "Previous Step",
-    "review_coming_soon": "Review — coming soon"
+    "previous_step_button": "Previous Step"
+  },
+  "calculator": {
+    "step_label": "Step 3 of 4",
+    "header_label": "Scheme Selection",
+    "title": "Estimate Your EMI",
+    "subtitle": "Adjust the loan amount to see real-time updates on your subsidy and monthly obligations under the selected scheme.",
+    "loan_amount_label": "REQUIRED LOAN AMOUNT",
+    "subsidy_label": "Government Subsidy",
+    "subsidy_subtitle": "Estimated at 25% of principal",
+    "emi_label": "Monthly EMI",
+    "emi_subtitle": "Post-moratorium ({rate}% p.a.)",
+    "moratorium_label": "Moratorium Period",
+    "moratorium_value": "12 Months",
+    "moratorium_subtitle": "No payments required",
+    "footer_text": "Based on these estimates, you can proceed to locate participating financial institutions to process your application.",
+    "find_banks_button": "Find Nearby Banks",
+    "nearby_banks_pending": "Nearby banks UI pending"
   }
 }
