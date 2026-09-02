@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../auth/widgets/trust_footer.dart';
+import '../calculator/emi_calculator_screen.dart';
 
 class _MockMatch {
   const _MockMatch({
@@ -11,6 +12,8 @@ class _MockMatch {
     required this.loanLimit,
     required this.interestRate,
     required this.emi,
+    required this.loanLimitValue,
+    required this.interestRateValue,
   });
 
   final String name;
@@ -18,6 +21,11 @@ class _MockMatch {
   final String loanLimit;
   final String interestRate;
   final String emi;
+
+  // Raw numeric values (the fields above are pre-formatted display strings)
+  // so "Calculate Loan" can pass real numbers to EmiCalculatorScreen.
+  final double loanLimitValue;
+  final double interestRateValue;
 }
 
 class MatchedSchemesScreen extends StatelessWidget {
@@ -33,6 +41,8 @@ class MatchedSchemesScreen extends StatelessWidget {
       loanLimit: '₹5,00,000',
       interestRate: '8.5%',
       emi: '₹10,200',
+      loanLimitValue: 500000,
+      interestRateValue: 8.5,
     ),
     _MockMatch(
       name: 'Regional Housing Support Initiative',
@@ -40,6 +50,8 @@ class MatchedSchemesScreen extends StatelessWidget {
       loanLimit: '₹8,00,000',
       interestRate: '7.25%',
       emi: '₹15,400',
+      loanLimitValue: 800000,
+      interestRateValue: 7.25,
     ),
     _MockMatch(
       name: 'Family Density Growth Fund',
@@ -47,6 +59,8 @@ class MatchedSchemesScreen extends StatelessWidget {
       loanLimit: '₹12,00,000',
       interestRate: '9.0%',
       emi: '₹21,600',
+      loanLimitValue: 1200000,
+      interestRateValue: 9.0,
     ),
   ];
 
@@ -226,13 +240,18 @@ class _MatchCard extends StatelessWidget {
                       const SizedBox(height: 12),
                       InkWell(
                         borderRadius: BorderRadius.circular(8),
-                        onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'scheme_matching.review_coming_soon'.tr(),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EmiCalculatorScreen(
+                                initialPrincipal: match.loanLimitValue,
+                                interestRate: match.interestRateValue,
+                                schemeName: match.name,
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
