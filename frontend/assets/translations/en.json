@@ -1,0 +1,10 @@
+{
+  "welcome": {
+    "title": "Welcome",
+    "subtitle": "Please select your preferred language to continue with your financial assistance application.",
+    "language_english": "English",
+    "language_hindi": "हिंदी",
+    "info_settings_notice": "You can change this later in settings.",
+    "voice_assistant": "Voice Assistant"
+  }
+}
