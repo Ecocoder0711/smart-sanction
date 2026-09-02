@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/network/api_constants.dart';
+import '../models/match_result.dart';
 import '../models/scheme.dart';
 
 class ApiException implements Exception {
@@ -44,6 +45,55 @@ class ApiService {
     } catch (error) {
       throw ApiException('Failed to reach $endpoint: $error');
     }
+  }
+
+  Future<dynamic> _post(
+    String endpoint, {
+    required Map<String, dynamic> body,
+    String? token,
+  }) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
+
+    try {
+      final response = await _client.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+
+      throw ApiException(
+        'Request to $endpoint failed with status ${response.statusCode}',
+        statusCode: response.statusCode,
+      );
+    } on ApiException {
+      rethrow;
+    } catch (error) {
+      throw ApiException('Failed to reach $endpoint: $error');
+    }
+  }
+
+  Future<MatchResult> fetchMatches({
+    required double requestedAmount,
+    required int tenureMonths,
+    required String token,
+  }) async {
+    final data = await _post(
+      '/match',
+      body: {
+        'requested_amount': requestedAmount,
+        'tenure_months': tenureMonths,
+      },
+      token: token,
+    );
+
+    return MatchResult.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<Scheme>> fetchSchemes({String? token}) async {
