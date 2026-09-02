@@ -1,4 +1,8 @@
 pandas>=2.2,<3.0
 Faker>=25.0,<26.0
-scikit-learn>=1.4,<2.0
-joblib>=1.4,<2.0
+# Pinned to match backend/requirements.txt exactly: joblib artifacts are
+# only guaranteed to unpickle correctly under the exact scikit-learn version
+# that created them (its ColumnTransformer internals are private and can
+# change between versions with no deprecation cycle).
+scikit-learn==1.9.0
+joblib==1.6.0

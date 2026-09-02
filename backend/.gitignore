@@ -30,3 +30,4 @@ Thumbs.db
 # Trained model artifacts (regenerable via data/ml/train_random_forest.py)
 *.joblib
 
+*.db
