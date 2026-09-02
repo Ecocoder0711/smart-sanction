@@ -154,11 +154,26 @@ SMART_SANCTION_DEBUG=false
 | `JWT_ALGORITHM`                 | JWT signing algorithm                            | `HS256`                          |
 | `ACCESS_TOKEN_EXPIRE_MINUTES`   | Access-token lifetime                            | `60`                             |
 | `RECOMMENDED_PARTNER_RADIUS_KM` | Default recommendation radius                    | `50`                             |
-| `ML_AVAILABLE`                  | Enables a future installed ML adapter            | `false`                          |
+| `ML_AVAILABLE`                  | Gates all ML scoring (see below)                 | `false`                          |
 | `SMART_SANCTION_ENVIRONMENT`    | Runtime environment label                        | `development`                    |
 | `SMART_SANCTION_DEBUG`          | Application debug flag                           | `false`                          |
 
 Never commit `.env`. The repository tracks only `.env.example`.
+
+#### Variable names: only the last two take the prefix
+
+`Settings` declares `env_prefix="SMART_SANCTION_"`, but pydantic-settings does
+not apply a prefix to a field that has an explicit `validation_alias`. Every
+variable above the blank line is read by its bare name, so
+`SMART_SANCTION_ML_AVAILABLE=true` is **silently ignored** — the working
+variable is `ML_AVAILABLE`. Only `SMART_SANCTION_ENVIRONMENT` and
+`SMART_SANCTION_DEBUG` are prefixed.
+
+To try ML for a single run without editing `.env`:
+
+```bash
+ML_AVAILABLE=true uvicorn app.main:app --reload
+```
 
 ### 5. Apply migrations
 
@@ -368,16 +383,34 @@ Partner/admin authorization is intentionally outside the current phase.
 
 ## ML integration status
 
-Actual ML is **not implemented**.
+`app/services/ml/contracts.py` defines the `MatchingEngine` protocol.
+`RandomForestAdapter` implements it, supplying two independent values per
+candidate:
 
-`app/services/ml/contracts.py` defines the `MatchingEngine` protocol
-for a future adapter. With `ML_AVAILABLE=false`:
+- `approval_probability` — a trained `RandomForestClassifier` loaded from
+  `app/services/ml/artifacts/random_forest_v1.joblib`. Its features are all
+  applicant-level, so within one request it is the **same value for every
+  candidate**: it scores the applicant, not the scheme.
+- `match_score` — deterministic cosine similarity between the applicant's
+  (income, requested amount) and each scheme's (income cap, loan cap). This
+  varies per scheme and is what candidate ordering and `rank` are derived from.
+
+The two are deliberately never blended.
+
+`ML_AVAILABLE` defaults to `false`, and in that state:
 
 - no model is called;
 - no scores or approval probabilities are fabricated;
 - deterministic matching remains fully functional;
 - response ML sections are null and report `unavailable`;
 - application ML database fields remain `NULL`.
+
+The artifact is gitignored (`*.joblib`), so a fresh clone has no model. That is
+handled, not an error: the adapter reports itself unavailable and matching
+answers normally. The same graceful degradation covers a missing, truncated,
+corrupt, or wrong-object artifact — `ml_status` reads `unavailable` rather than
+the request failing. Regenerate the artifact with
+`python data/ml/train_random_forest.py`.
 
 See [the ML integration contract](../docs/ml-integration.md) for the expected input,
 output, data types, and plug-in point.
@@ -394,13 +427,21 @@ python -m pytest -q
 Expected result:
 
 ```text
-50 passed
+132 passed
 ```
 
 The automated suite uses an isolated in-memory test database and covers
 authentication, ownership, users, schemes, partners, applications, eligibility,
-calculations, matching, ML-unavailable behavior, and application workflow
-transitions.
+calculations, matching, both ML-available and ML-unavailable behavior, artifact
+corruption handling, and application workflow transitions.
+
+Tests pin `ML_AVAILABLE` themselves through the `ml_enabled` / `ml_disabled`
+fixtures, so the suite gives the same result whether or not the variable is set
+in your shell:
+
+```bash
+ML_AVAILABLE=true python -m pytest -q   # also 132 passed
+```
 
 ## Useful maintenance commands
 
