@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/network/api_constants.dart';
+import '../models/scheme.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode});
@@ -40,17 +41,20 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> fetchSchemes() async {
+  Future<List<Scheme>> fetchSchemes() async {
     final data = await _get('/schemes');
 
+    final List<dynamic> rawItems;
     if (data is Map<String, dynamic> && data['items'] is List) {
-      return data['items'] as List<dynamic>;
+      rawItems = data['items'] as List<dynamic>;
+    } else if (data is List<dynamic>) {
+      rawItems = data;
+    } else {
+      throw ApiException('Unexpected response shape for /schemes');
     }
 
-    if (data is List<dynamic>) {
-      return data;
-    }
-
-    throw ApiException('Unexpected response shape for /schemes');
+    return rawItems
+        .map((item) => Scheme.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 }
