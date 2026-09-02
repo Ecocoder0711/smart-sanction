@@ -28,6 +28,15 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SMART-SANCTION uses your location to find nearby loan scheme partners.</string>
+	<!-- App Transport Security blocks plaintext HTTP by default. Only local
+	     networking is exempted so the app can reach the FastAPI server on the
+	     development machine. NSAllowsArbitraryLoads is deliberately NOT used:
+	     requests to real internet hosts still require HTTPS. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

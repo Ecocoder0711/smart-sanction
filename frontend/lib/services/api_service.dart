@@ -111,10 +111,12 @@ class ApiService {
     }
   }
 
-  /// Updates only the profile fields the backend's UserUpdate schema
-  /// actually supports. The backend has no state/district/gender fields —
-  /// sending them would be rejected (extra="forbid"), so those values stay
-  /// UI-only until the backend gains real support for them.
+  /// Updates the applicant's income and category.
+  ///
+  /// The backend's UserUpdate schema also accepts gender, state, district,
+  /// latitude, and longitude. For partial updates across the registration
+  /// wizard use `AuthService.updateProfile`, which sends an arbitrary subset
+  /// and returns the refreshed user including `profile_complete`.
   Future<void> updateProfile({
     required double annualIncome,
     required String category,
