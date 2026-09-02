@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/registration_draft_provider.dart';
 import 'screens/wizard/welcome_screen.dart';
 
 void main() async {
@@ -36,6 +37,8 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..loadStoredToken()),
+        // Temporary holder for wizard input; no screen reads it yet.
+        ChangeNotifierProvider(create: (_) => RegistrationDraftProvider()),
       ],
       child: MaterialApp(
         title: 'SMART-SANCTION',

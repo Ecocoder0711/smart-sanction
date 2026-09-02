@@ -37,12 +37,20 @@ class AuthService {
 
   final http.Client _client;
 
+  /// Registers an applicant.
+  ///
+  /// Only [fullName], [phone], and [password] are required: the backend
+  /// supports multi-step registration, so the profile fields may be supplied
+  /// later through [updateProfile]. Omitted fields are left null rather than
+  /// defaulted, which keeps the account's `profile_complete` false until the
+  /// applicant actually answers them.
   Future<Map<String, dynamic>> register({
     required String fullName,
     required String phone,
     required String password,
-    required double annualIncome,
-    required String category,
+    double? annualIncome,
+    String? category,
+    String? gender,
     double? latitude,
     double? longitude,
   }) async {
@@ -55,8 +63,9 @@ class AuthService {
         'full_name': fullName,
         'phone': phone,
         'password': password,
-        'annual_income': annualIncome,
-        'category': category,
+        'annual_income': ?annualIncome,
+        'category': ?category,
+        'gender': ?gender,
         'latitude': ?latitude,
         'longitude': ?longitude,
       }),
@@ -102,6 +111,67 @@ class AuthService {
 
     throw AuthException(
       _extractDetail(response.body) ?? 'Login failed',
+      statusCode: response.statusCode,
+    );
+  }
+
+  /// Applies a partial profile update through `PUT /api/users/me`.
+  ///
+  /// [fields] must contain only keys the backend's UserUpdate schema accepts
+  /// (full_name, phone, annual_income, category, gender, state, district,
+  /// latitude, longitude); it forbids unknown keys. Absent values should be
+  /// omitted rather than sent as null. Returns the updated user, whose
+  /// `profile_complete` flag reports whether eligibility and matching can run.
+  Future<Map<String, dynamic>> updateProfile({
+    required Map<String, dynamic> fields,
+    required String token,
+  }) async {
+    if (fields.isEmpty) {
+      throw AuthException('No profile fields to update');
+    }
+
+    final uri = Uri.parse('${ApiConstants.baseUrl}/users/me');
+    final response = await _client.put(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(fields),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+
+    if (response.statusCode == 401) {
+      throw AuthException('Session expired; sign in again', statusCode: 401);
+    }
+
+    throw AuthException(
+      _extractDetail(response.body) ?? 'Profile update failed',
+      statusCode: response.statusCode,
+    );
+  }
+
+  /// Loads the token owner's profile from `GET /api/users/me`.
+  Future<Map<String, dynamic>> fetchCurrentUser({required String token}) async {
+    final uri = Uri.parse('${ApiConstants.baseUrl}/users/me');
+    final response = await _client.get(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+
+    if (response.statusCode == 401) {
+      throw AuthException('Session expired; sign in again', statusCode: 401);
+    }
+
+    throw AuthException(
+      _extractDetail(response.body) ?? 'Could not load profile',
       statusCode: response.statusCode,
     );
   }
