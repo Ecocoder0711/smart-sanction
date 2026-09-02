@@ -223,6 +223,28 @@ Swagger's **Authorize** button can apply the token to authenticated requests.
 The backend always derives the current user from the JWT. Client-provided
 `user_id` values are not accepted for owned resources.
 
+## Applicant category and gender
+
+Applicant category and gender are independent eligibility dimensions.
+
+- `category` accepts exactly `SC`, `ST`, `OBC`, or `GENERAL`.
+- `gender` accepts exactly `MALE`, `FEMALE`, or `OTHER`.
+- `Women`, `Female`, and `Minority` are not applicant category values.
+- If an older client sends `General`, the API safely normalizes it to
+  `GENERAL`.
+- If a client omits gender during registration, the compatibility default is
+  `OTHER`.
+
+Every scheme exposes two separate targeting fields:
+
+- `category.category_name`: `ANY`, `SC`, `ST`, `OBC`, or `GENERAL`
+- `gender_eligibility`: `ANY`, `MALE`, `FEMALE`, or `OTHER`
+
+`ANY` means that dimension is unrestricted. A scheme targeting `SC` and
+`FEMALE` requires both conditions; a scheme targeting `ANY` and `FEMALE`
+accepts female applicants from all four categories. Income, amount, and active
+scheme rules are evaluated independently and remain unchanged.
+
 ## API endpoints
 
 | Method | Endpoint                             | Authentication | Purpose                                           |

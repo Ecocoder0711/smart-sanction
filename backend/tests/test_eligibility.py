@@ -96,15 +96,9 @@ def test_requested_amount_exceeds_limit_is_explained(client: TestClient) -> None
 
 def test_inactive_scheme_is_an_ineligible_result(client: TestClient) -> None:
     _, headers = register_and_login(client, "9880000035")
-    update = client.put(
-        "/api/users/me",
-        headers=headers,
-        json={"category": "Minority"},
-    )
-    assert update.status_code == 200
     scheme_id = _scheme_id_by_name(
         client,
-        "Demo Minority Enterprise Accelerator",
+        "Demo Inclusive Enterprise Accelerator",
         is_active=False,
     )
 
@@ -144,4 +138,3 @@ def test_invalid_amount_and_missing_auth_are_rejected(client: TestClient) -> Non
 
     assert invalid.status_code == 422
     assert unauthenticated.status_code == 401
-

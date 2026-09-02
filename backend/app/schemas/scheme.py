@@ -5,6 +5,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.enums import GenderEligibility, SchemeCategoryEligibility
+
 
 class SchemeCategoryResponse(BaseModel):
     """Scheme category representation."""
@@ -12,7 +14,7 @@ class SchemeCategoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    category_name: str
+    category_name: SchemeCategoryEligibility
     description: str | None
     created_at: datetime
 
@@ -26,6 +28,7 @@ class SchemeResponse(BaseModel):
     scheme_name: str
     category_id: int
     category: SchemeCategoryResponse
+    gender_eligibility: GenderEligibility
     max_loan_limit: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
     interest_rate: Decimal = Field(ge=0, max_digits=7, decimal_places=4)
     moratorium_months: int = Field(ge=0)

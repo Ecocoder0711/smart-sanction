@@ -3,7 +3,9 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.core.enums import ApplicantCategory, Gender
 
 INDIAN_MOBILE_PATTERN = r"^(?:\+91|91)?[6-9]\d{9}$"
 
@@ -14,9 +16,16 @@ class UserBase(BaseModel):
     full_name: str = Field(min_length=2, max_length=150)
     phone: str = Field(pattern=INDIAN_MOBILE_PATTERN, max_length=15)
     annual_income: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
-    category: str = Field(min_length=1, max_length=50)
+    category: ApplicantCategory
+    gender: Gender = Gender.OTHER
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @field_validator("category", "gender", mode="before")
+    @classmethod
+    def normalize_enums(cls, value: object) -> object:
+        """Accept harmless casing differences while keeping a strict value set."""
+        return value.strip().upper() if isinstance(value, str) else value
 
 
 class UserCreate(UserBase):
@@ -40,16 +49,23 @@ class UserUpdate(BaseModel):
         max_digits=14,
         decimal_places=2,
     )
-    category: str | None = Field(default=None, min_length=1, max_length=50)
+    category: ApplicantCategory | None = None
+    gender: Gender | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    @field_validator("category", "gender", mode="before")
+    @classmethod
+    def normalize_enums(cls, value: object) -> object:
+        """Normalize supplied enum strings before strict validation."""
+        return value.strip().upper() if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def require_at_least_one_field(self) -> "UserUpdate":
         """Reject an update payload that does not contain any fields."""
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided")
-        required_fields = {"full_name", "phone", "annual_income", "category"}
+        required_fields = {"full_name", "phone", "annual_income", "category", "gender"}
         null_required_fields = [
             field_name
             for field_name in required_fields & self.model_fields_set

@@ -25,16 +25,12 @@ SYNTHETIC_CATEGORIES: tuple[dict[str, str], ...] = (
         "description": "SYNTHETIC/DEMO category for prototype eligibility testing only.",
     },
     {
-        "category_name": "General",
+        "category_name": "GENERAL",
         "description": "SYNTHETIC/DEMO category for prototype eligibility testing only.",
     },
     {
-        "category_name": "Women",
-        "description": "SYNTHETIC/DEMO category for prototype eligibility testing only.",
-    },
-    {
-        "category_name": "Minority",
-        "description": "SYNTHETIC/DEMO category for prototype eligibility testing only.",
+        "category_name": "ANY",
+        "description": "SYNTHETIC/DEMO category-unrestricted eligibility marker.",
     },
 )
 
@@ -42,6 +38,7 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     {
         "scheme_name": "Demo Community Enterprise Starter",
         "category_name": "SC",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("300000.00"),
         "interest_rate": Decimal("4.5000"),
         "moratorium_months": 3,
@@ -52,6 +49,7 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     {
         "scheme_name": "Demo Community Growth Credit",
         "category_name": "SC",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("1200000.00"),
         "interest_rate": Decimal("6.2500"),
         "moratorium_months": 6,
@@ -62,6 +60,7 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     {
         "scheme_name": "Demo Tribal Livelihood Microcredit",
         "category_name": "ST",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("200000.00"),
         "interest_rate": Decimal("3.7500"),
         "moratorium_months": 6,
@@ -72,6 +71,7 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     {
         "scheme_name": "Demo Tribal Enterprise Expansion",
         "category_name": "ST",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("1500000.00"),
         "interest_rate": Decimal("7.0000"),
         "moratorium_months": 12,
@@ -82,6 +82,7 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     {
         "scheme_name": "Demo Artisan Opportunity Fund",
         "category_name": "OBC",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("500000.00"),
         "interest_rate": Decimal("5.2500"),
         "moratorium_months": 4,
@@ -92,6 +93,7 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     {
         "scheme_name": "Demo Enterprise Business Boost",
         "category_name": "OBC",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("2000000.00"),
         "interest_rate": Decimal("7.2500"),
         "moratorium_months": 9,
@@ -101,7 +103,8 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     },
     {
         "scheme_name": "Demo Universal Microenterprise Loan",
-        "category_name": "General",
+        "category_name": "GENERAL",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("350000.00"),
         "interest_rate": Decimal("8.0000"),
         "moratorium_months": 2,
@@ -111,7 +114,8 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     },
     {
         "scheme_name": "Demo Innovation Venture Credit",
-        "category_name": "General",
+        "category_name": "GENERAL",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("3000000.00"),
         "interest_rate": Decimal("9.5000"),
         "moratorium_months": 6,
@@ -121,7 +125,8 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     },
     {
         "scheme_name": "Demo Women Entrepreneur Starter",
-        "category_name": "Women",
+        "category_name": "ANY",
+        "gender_eligibility": "FEMALE",
         "max_loan_limit": Decimal("600000.00"),
         "interest_rate": Decimal("4.2500"),
         "moratorium_months": 6,
@@ -131,7 +136,8 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
     },
     {
         "scheme_name": "Demo Women Growth Capital",
-        "category_name": "Women",
+        "category_name": "SC",
+        "gender_eligibility": "FEMALE",
         "max_loan_limit": Decimal("2500000.00"),
         "interest_rate": Decimal("6.5000"),
         "moratorium_months": 12,
@@ -140,8 +146,9 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
         "is_active": True,
     },
     {
-        "scheme_name": "Demo Minority Livelihood Support",
-        "category_name": "Minority",
+        "scheme_name": "Demo Inclusive Livelihood Support",
+        "category_name": "ANY",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("400000.00"),
         "interest_rate": Decimal("4.7500"),
         "moratorium_months": 5,
@@ -150,8 +157,9 @@ SYNTHETIC_SCHEMES: tuple[dict[str, object], ...] = (
         "is_active": True,
     },
     {
-        "scheme_name": "Demo Minority Enterprise Accelerator",
-        "category_name": "Minority",
+        "scheme_name": "Demo Inclusive Enterprise Accelerator",
+        "category_name": "GENERAL",
+        "gender_eligibility": "ANY",
         "max_loan_limit": Decimal("1800000.00"),
         "interest_rate": Decimal("7.5000"),
         "moratorium_months": 10,
@@ -210,4 +218,3 @@ def seed_schemes(
         inserted += 1
     session.flush()
     return existing, SeedResult(total=len(SYNTHETIC_SCHEMES), inserted=inserted)
-

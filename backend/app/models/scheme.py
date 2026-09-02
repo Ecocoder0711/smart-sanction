@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.enums import GenderEligibility
 from app.database.database import Base
 
 if TYPE_CHECKING:
@@ -25,7 +26,12 @@ class Scheme(Base):
         CheckConstraint("interest_rate >= 0", name="ck_schemes_interest_rate_non_negative"),
         CheckConstraint("moratorium_months >= 0", name="ck_schemes_moratorium_non_negative"),
         CheckConstraint("max_income_limit >= 0", name="ck_schemes_max_income_non_negative"),
+        CheckConstraint(
+            "gender_eligibility IN ('ANY', 'MALE', 'FEMALE', 'OTHER')",
+            name="ck_schemes_gender_eligibility_values",
+        ),
         Index("ix_schemes_category_id", "category_id"),
+        Index("ix_schemes_gender_eligibility", "gender_eligibility"),
         Index("ix_schemes_is_active", "is_active"),
     )
 
@@ -34,6 +40,12 @@ class Scheme(Base):
     category_id: Mapped[int] = mapped_column(
         ForeignKey("scheme_categories.id", ondelete="RESTRICT"),
         nullable=False,
+    )
+    gender_eligibility: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default=GenderEligibility.ANY.value,
+        server_default=GenderEligibility.ANY.value,
     )
     max_loan_limit: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     interest_rate: Mapped[Decimal] = mapped_column(Numeric(7, 4), nullable=False)
@@ -60,4 +72,3 @@ class Scheme(Base):
 
     category: Mapped[SchemeCategory] = relationship(back_populates="schemes")
     applications: Mapped[list[Application]] = relationship(back_populates="scheme")
-
