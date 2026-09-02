@@ -2,7 +2,12 @@
 
 from fastapi.testclient import TestClient
 
+from seed.partners import SYNTHETIC_PARTNERS
 from tests.helpers import register_and_login
+
+ACTIVE_SEEDED_PARTNERS = [
+    partner for partner in SYNTHETIC_PARTNERS if partner["is_active"]
+]
 
 
 def test_list_partners_keeps_zero_quota_visible(client: TestClient) -> None:
@@ -10,7 +15,9 @@ def test_list_partners_keeps_zero_quota_visible(client: TestClient) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert len(payload) == 16
+    # Derived from the seed rather than hard-coded, so intentional growth of
+    # the synthetic dataset does not silently invalidate the assertion.
+    assert len(payload) == len(ACTIVE_SEEDED_PARTNERS)
     assert any(float(item["quota_remaining"]) == 0 for item in payload)
     assert all(item["is_active"] for item in payload)
 
@@ -45,19 +52,30 @@ def test_nearby_partner_distance_and_order(client: TestClient) -> None:
 
 
 def test_nearby_excludes_zero_quota_and_inactive(client: TestClient) -> None:
+    # Both branches sit exactly on the searched coordinates, so they would be
+    # the closest results if they were eligible. Asserting their absence by
+    # branch code keeps this structural now that the expanded seed also
+    # clusters eligible branches around the same cities.
     zero_quota_response = client.get(
         "/api/partners/nearby",
-        params={"latitude": 19.0748, "longitude": 72.879, "radius_km": 2},
+        params={"latitude": 19.0748, "longitude": 72.879, "radius_km": 25},
     )
     inactive_response = client.get(
         "/api/partners/nearby",
-        params={"latitude": 34.1518, "longitude": 77.5763, "radius_km": 2},
+        params={"latitude": 34.1518, "longitude": 77.5763, "radius_km": 25},
     )
 
     assert zero_quota_response.status_code == 200
-    assert zero_quota_response.json() == []
+    zero_quota_codes = [item["branch_code"] for item in zero_quota_response.json()]
+    assert "DEMO-MUM-003" not in zero_quota_codes  # quota_remaining == 0
+
     assert inactive_response.status_code == 200
-    assert inactive_response.json() == []
+    inactive_codes = [item["branch_code"] for item in inactive_response.json()]
+    assert "DEMO-LEH-006" not in inactive_codes  # is_active is False
+
+    # The exclusions above must not be vacuous: eligible neighbours do exist.
+    assert zero_quota_codes
+    assert inactive_codes
 
 
 def test_nearby_rejects_invalid_parameters(client: TestClient) -> None:

@@ -48,5 +48,10 @@
     "district_error": "Select your district",
     "category_error": "Select a category",
     "gender_error": "Select a gender"
+  },
+  "location": {
+    "step_of_label": "Step 2 of 2",
+    "header_label": "User Location",
+    "pending_text": "Location UI Pending"
   }
 }

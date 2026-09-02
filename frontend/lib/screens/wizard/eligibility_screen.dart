@@ -1,9 +1,14 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/india_locations.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import '../auth/widgets/trust_footer.dart';
+import 'location_screen.dart';
+import 'login_screen.dart';
 
 class _ChipOption {
   const _ChipOption(this.value, this.labelKey);
@@ -39,6 +44,7 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final _annualIncomeController = TextEditingController();
+  final _apiService = ApiService();
 
   String? _selectedState;
   String? _selectedDistrict;
@@ -46,6 +52,7 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
   String? _categoryError;
   String? _selectedGender;
   String? _genderError;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -78,8 +85,14 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
     );
   }
 
-  void _submit() {
-    // UI only for now; API wiring (ApiService.fetchMatches) lands later.
+  void _goToLogin() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  }
+
+  Future<void> _submit() async {
     final isFormValid = _formKey.currentState!.validate();
     final isCategoryValid = _selectedCategory != null;
     final isGenderValid = _selectedGender != null;
@@ -91,10 +104,55 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
       _genderError = isGenderValid ? null : 'eligibility.gender_error'.tr();
     });
 
-    if (isFormValid && isCategoryValid && isGenderValid) {
+    if (!isFormValid || !isCategoryValid || !isGenderValid) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final token = authProvider.token;
+
+    if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Form valid — API wiring pending')),
+        const SnackBar(
+          content: Text('User authentication required to update profile'),
+        ),
       );
+      _goToLogin();
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Only annual_income and category are sent — the backend's
+      // UserUpdate schema (extra="forbid") has no state/district/gender
+      // fields, so those stay UI-only for now.
+      await _apiService.updateProfile(
+        annualIncome: double.parse(_annualIncomeController.text),
+        category: _selectedCategory!,
+        token: token,
+      );
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const LocationScreen()),
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      if (error.statusCode == 401) {
+        await authProvider.logout();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Session expired. Please log in again.'),
+          ),
+        );
+        _goToLogin();
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.errorRed, content: Text(error.message)),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -365,7 +423,7 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                             SizedBox(
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: _submit,
+                                onPressed: _isLoading ? null : _submit,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.emeraldGreen,
                                   foregroundColor: Colors.white,
@@ -373,9 +431,16 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                                child: Text(
-                                  'eligibility.continue_button'.tr(),
-                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text('eligibility.continue_button'.tr()),
                               ),
                             ),
                           ],

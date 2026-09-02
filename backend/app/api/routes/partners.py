@@ -12,8 +12,9 @@ from app.schemas.partner import (
     NearbyPartnerResponse,
     PartnerResponse,
     RecommendedPartnerResponse,
+    RoutedPartnerResponse,
 )
-from app.services import partner_service
+from app.services import partner_routing_service, partner_service
 
 router = APIRouter(prefix="/api/partners", tags=["Partners"])
 DatabaseSession = Annotated[Session, Depends(get_db)]
@@ -94,6 +95,48 @@ def recommend_partners(
             current_user,
             radius_km=radius_km,
             limit=limit,
+        )
+    except partner_service.UserLocationRequiredError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User location is not configured",
+        ) from None
+
+
+@router.get(
+    "/routed",
+    response_model=list[RoutedPartnerResponse],
+    summary="Route applicant to the best nearby partner",
+    description=(
+        "Two-stage deterministic routing. First the K geographically nearest "
+        "active partners with remaining quota are retrieved by Haversine "
+        "distance from the Bearer-token user's stored coordinates; those K are "
+        "then ranked by a weighted Partner Health Score over NPA, remaining "
+        "quota, and distance. No trained model is involved."
+    ),
+    responses={
+        400: {"description": "The authenticated user has no stored location."},
+        401: {"description": "Missing or invalid access token."},
+    },
+)
+def route_partners(
+    session: DatabaseSession,
+    current_user: CurrentUser,
+    k: Annotated[
+        int,
+        Query(
+            gt=0,
+            le=partner_routing_service.MAX_K,
+            description="How many nearest partners to consider before health ranking.",
+        ),
+    ] = partner_routing_service.DEFAULT_K,
+) -> list[RoutedPartnerResponse]:
+    """Return the K nearest eligible partners ordered by health score."""
+    try:
+        return partner_routing_service.route_partners_for_user(
+            session,
+            current_user,
+            k=k,
         )
     except partner_service.UserLocationRequiredError:
         raise HTTPException(

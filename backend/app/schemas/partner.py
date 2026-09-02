@@ -31,3 +31,13 @@ class NearbyPartnerResponse(PartnerResponse):
 
 class RecommendedPartnerResponse(NearbyPartnerResponse):
     """Partner recommended only by deterministic availability and distance rules."""
+
+
+class RoutedPartnerResponse(RecommendedPartnerResponse):
+    """Nearest-K partner carrying its deterministic Partner Health Score.
+
+    health_score is a weighted score over stored NPA, remaining quota, and
+    distance -- not the output of a trained model.
+    """
+
+    health_score: float = Field(ge=0, le=1)
