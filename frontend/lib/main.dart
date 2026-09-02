@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/auth_provider.dart';
 import 'screens/home/home_screen.dart';
 
 void main() {
@@ -21,14 +23,19 @@ class MyApp extends StatelessWidget {
       secondary: deepNavyBlue,
     );
 
-    return MaterialApp(
-      title: 'SMART-SANCTION',
-      theme: ThemeData(
-        colorScheme: colorScheme,
-        textTheme: GoogleFonts.interTextTheme(),
-        useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()..loadStoredToken()),
+      ],
+      child: MaterialApp(
+        title: 'SMART-SANCTION',
+        theme: ThemeData(
+          colorScheme: colorScheme,
+          textTheme: GoogleFonts.interTextTheme(),
+          useMaterial3: true,
+        ),
+        home: const HomeScreen(),
       ),
-      home: const HomeScreen(),
     );
   }
 }

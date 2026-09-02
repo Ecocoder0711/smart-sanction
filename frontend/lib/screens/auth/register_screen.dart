@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import '../home/home_screen.dart';
 import 'widgets/trust_footer.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -65,7 +69,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final isFormValid = _formKey.currentState!.validate();
     final isCategoryValid = _selectedCategory != null;
 
@@ -73,9 +77,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _categoryError = isCategoryValid ? null : 'Select a category';
     });
 
-    if (isFormValid && isCategoryValid) {
+    if (!isFormValid || !isCategoryValid) return;
+
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      await authProvider.register(
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+        annualIncome: double.parse(_annualIncomeController.text),
+        category: _selectedCategory!,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        PhoneAlreadyRegisteredException(:final message) => message,
+        AuthException(:final message) => message,
+        _ => error.toString(),
+      };
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Registration submitted')),
+        SnackBar(
+          backgroundColor: AppColors.errorRed,
+          content: Text(message),
+        ),
       );
     }
   }
@@ -201,19 +231,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ],
                     const SizedBox(height: 28),
-                    SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.emeraldGreen,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    Consumer<AuthProvider>(
+                      builder: (context, authProvider, _) {
+                        return SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: authProvider.isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.emeraldGreen,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: authProvider.isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Register'),
                           ),
-                        ),
-                        child: const Text('Register'),
-                      ),
+                        );
+                      },
                     ),
                   ],
                 ),

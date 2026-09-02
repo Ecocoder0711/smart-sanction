@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import '../home/home_screen.dart';
 import 'register_screen.dart';
 import 'widgets/trust_footer.dart';
 
@@ -49,10 +53,30 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      await authProvider.login(
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login submitted')),
+        SnackBar(
+          backgroundColor: AppColors.errorRed,
+          content: Text(
+            error is AuthException ? error.message : error.toString(),
+          ),
+        ),
       );
     }
   }
@@ -100,19 +124,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 28),
-                    SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.deepNavy,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    Consumer<AuthProvider>(
+                      builder: (context, authProvider, _) {
+                        return SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: authProvider.isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.deepNavy,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: authProvider.isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Log In'),
                           ),
-                        ),
-                        child: const Text('Log In'),
-                      ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextButton(

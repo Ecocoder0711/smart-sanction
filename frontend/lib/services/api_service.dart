@@ -20,11 +20,16 @@ class ApiService {
 
   final http.Client _client;
 
-  Future<dynamic> _get(String endpoint) async {
+  Future<dynamic> _get(String endpoint, {String? token}) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
 
     try {
-      final response = await _client.get(uri);
+      final response = await _client.get(
+        uri,
+        headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -41,8 +46,8 @@ class ApiService {
     }
   }
 
-  Future<List<Scheme>> fetchSchemes() async {
-    final data = await _get('/schemes');
+  Future<List<Scheme>> fetchSchemes({String? token}) async {
+    final data = await _get('/schemes', token: token);
 
     final List<dynamic> rawItems;
     if (data is Map<String, dynamic> && data['items'] is List) {
