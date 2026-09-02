@@ -77,7 +77,9 @@ class _SchemeMatchingScreenState extends State<SchemeMatchingScreen> {
         await authProvider.logout();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session expired. Please log in again.')),
+          const SnackBar(
+            content: Text('Session expired. Please log in again.'),
+          ),
         );
         _goToLogin();
         return;
@@ -93,9 +95,7 @@ class _SchemeMatchingScreenState extends State<SchemeMatchingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Find Matches'),
-      ),
+      appBar: AppBar(title: const Text('Find Matches')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(

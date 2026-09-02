@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/scheme.dart';
+import '../scheme_matching/scheme_intake_screen.dart';
 import 'category_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -72,6 +73,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _goToSchemeIntake() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SchemeIntakeScreen()),
+    );
   }
 
   @override
@@ -194,8 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: SizedBox(
         width: double.infinity,
         child: FloatingActionButton.extended(
-          onPressed: () =>
-              _showComingSoon('dashboard.feature_coming_soon'.tr()),
+          onPressed: _goToSchemeIntake,
           backgroundColor: AppColors.emeraldGreen,
           foregroundColor: Colors.white,
           elevation: 6,
@@ -222,8 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               centerLabel: 'dashboard.card_schemes_center'.tr(),
               subtitle: 'dashboard.card_schemes_subtitle'.tr(),
               isDark: false,
-              onTap: () =>
-                  _showComingSoon('dashboard.feature_coming_soon'.tr()),
+              onTap: _goToSchemeIntake,
             ),
           ),
           const SizedBox(width: 8),
