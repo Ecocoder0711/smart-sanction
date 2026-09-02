@@ -1,7 +1,10 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_error_messages.dart';
+import '../../providers/auth_provider.dart';
 import 'eligibility_screen.dart';
 import 'register_screen.dart';
 
@@ -51,18 +54,47 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _submit() {
-    // UI/navigation only — not connected to the backend yet.
-    if (_formKey.currentState!.validate()) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = context.read<AuthProvider>();
+
+    try {
+      await auth.login(
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
       );
+    } on Exception catch (error) {
+      if (!mounted) return;
+      // A 401 here means the credentials are wrong, not that a session
+      // lapsed -- there is no session to lapse before logging in.
+      _showError(
+        describeApiError(
+          error,
+          fallbackKey: 'auth.request_failed',
+          unauthorizedKey: 'auth.invalid_credentials',
+        ),
+      );
+      return;
     }
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSubmitting = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
@@ -138,7 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: _submit,
+                        // Disabled while the request is in flight so a second
+                        // tap cannot submit twice. Same widget and size.
+                        onPressed: isSubmitting ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.deepNavy,
                           foregroundColor: Colors.white,
