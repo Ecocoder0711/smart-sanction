@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, String, Text, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, DateTime, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.database import Base
@@ -19,6 +19,10 @@ class SchemeCategory(Base):
 
     __tablename__ = "scheme_categories"
     __table_args__ = (
+        CheckConstraint(
+            "category_name IN ('ANY', 'SC', 'ST', 'OBC', 'GENERAL')",
+            name="ck_scheme_categories_name_values",
+        ),
         UniqueConstraint("category_name", name="uq_scheme_categories_category_name"),
     )
 
@@ -32,4 +36,3 @@ class SchemeCategory(Base):
     )
 
     schemes: Mapped[list[Scheme]] = relationship(back_populates="category")
-

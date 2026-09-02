@@ -27,7 +27,7 @@ def register_user(session: Session, payload: RegisterRequest) -> User:
     if get_user_by_phone(session, payload.phone) is not None:
         raise PhoneAlreadyRegisteredError
 
-    values = payload.model_dump(exclude={"password"})
+    values = payload.model_dump(mode="json", exclude={"password"})
     user = User(
         **values,
         password_hash=hash_password(payload.password.get_secret_value()),
@@ -61,4 +61,3 @@ def change_password(
         raise InvalidCurrentPasswordError
     user.password_hash = hash_password(payload.new_password.get_secret_value())
     session.commit()
-

@@ -8,9 +8,10 @@ def test_list_categories_is_deterministic(client: TestClient) -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert len(payload) == 6
+    assert len(payload) == 5
     names = [item["category_name"] for item in payload]
     assert names == sorted(names)
+    assert set(names) == {"ANY", "SC", "ST", "OBC", "GENERAL"}
 
 
 def test_list_schemes_defaults_to_active(client: TestClient) -> None:
@@ -21,6 +22,7 @@ def test_list_schemes_defaults_to_active(client: TestClient) -> None:
     assert payload["total"] == 11
     assert all(item["is_active"] for item in payload["items"])
     assert all("category" in item for item in payload["items"])
+    assert all("gender_eligibility" in item for item in payload["items"])
 
 
 def test_filter_schemes(client: TestClient) -> None:
@@ -35,7 +37,7 @@ def test_filter_schemes(client: TestClient) -> None:
     )
 
     assert category_response.status_code == 200
-    assert category_response.json()["total"] == 2
+    assert category_response.json()["total"] == 3
     assert all(
         item["category"]["category_name"] == "SC"
         for item in category_response.json()["items"]
@@ -63,4 +65,3 @@ def test_nonexistent_scheme_returns_404(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Scheme not found"}
-

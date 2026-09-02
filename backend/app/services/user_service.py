@@ -14,7 +14,7 @@ class PhoneAlreadyInUseError(ValueError):
 
 def update_user(session: Session, user: User, payload: UserUpdate) -> User:
     """Update only explicitly supplied editable fields for the token owner."""
-    changes = payload.model_dump(exclude_unset=True)
+    changes = payload.model_dump(mode="json", exclude_unset=True)
     new_phone = changes.get("phone")
     if new_phone is not None and new_phone != user.phone:
         phone_owner = session.scalar(select(User).where(User.phone == new_phone))
@@ -30,4 +30,3 @@ def update_user(session: Session, user: User, payload: UserUpdate) -> User:
         raise PhoneAlreadyInUseError from exc
     session.refresh(user)
     return user
-

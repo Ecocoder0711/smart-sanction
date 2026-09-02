@@ -17,7 +17,7 @@ def registration_payload(
         "full_name": f"Authenticated Test User {phone[-2:]}",
         "phone": phone,
         "annual_income": "325000.00",
-        "category": "General",
+        "category": "GENERAL",
         "latitude": 23.2599,
         "longitude": 77.4126,
         "password": password,
@@ -43,4 +43,3 @@ def register_and_login(
     assert login.status_code == 200, login.text
     token = login.json()["access_token"]
     return registration.json(), {"Authorization": f"Bearer {token}"}
-

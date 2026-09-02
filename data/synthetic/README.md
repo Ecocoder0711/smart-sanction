@@ -7,7 +7,7 @@ branches, or real people's information.
 
 The PostgreSQL seed contains approximately:
 
-- 6 scheme categories
+- 5 scheme eligibility categories (`ANY`, `SC`, `ST`, `OBC`, `GENERAL`)
 - 12 fictional concessional schemes
 - 18 synthetic applicants
 - 18 fictional channel-partner branches
@@ -16,6 +16,11 @@ The PostgreSQL seed contains approximately:
 The records cover different categories, income and loan limits, interest rates,
 locations, quotas, NPA percentages, active states, and application statuses.
 ML match scores and approval probabilities are always left `NULL`.
+
+Applicant `category` values are limited to `SC`, `ST`, `OBC`, and
+`GENERAL`. Applicant `gender` is stored separately as `MALE`, `FEMALE`,
+or `OTHER`. Scheme category eligibility and gender eligibility are also
+separate; `ANY` represents an unrestricted scheme dimension.
 
 From `smart-sanction/backend`, with PostgreSQL running and `.env` configured:
 

@@ -33,16 +33,15 @@ def test_authenticated_matching_returns_complete_deterministic_candidates(
     body = response.json()
     assert body["requested_amount"] == "100000.00"
     assert body["tenure_months"] == 36
-    assert body["candidate_count"] == 2
+    assert body["candidate_count"] == 3
     assert body["candidate_count"] == len(body["candidates"])
     assert body["ml_status"] == "unavailable"
 
     scheme_ids = [item["scheme"]["id"] for item in body["candidates"]]
     assert scheme_ids == sorted(scheme_ids)
-    assert all(
-        item["scheme"]["category"]["category_name"] == "General"
-        for item in body["candidates"]
-    )
+    assert {
+        item["scheme"]["category"]["category_name"] for item in body["candidates"]
+    } == {"GENERAL", "ANY"}
     assert all(item["eligibility"]["eligible"] for item in body["candidates"])
     assert all(
         "Applicant category is eligible" in item["eligibility"]["reasons"]

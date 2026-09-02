@@ -27,7 +27,8 @@ PARTNER_COUNT = 100
 RANDOM_SEED = 42
 
 # Matches the category_name values seeded in backend/seed/schemes.py.
-CATEGORIES = ("SC", "ST", "OBC", "General", "Women", "Minority")
+CATEGORIES = ("SC", "ST", "OBC", "GENERAL")
+GENDERS = ("MALE", "FEMALE", "OTHER")
 
 INDIA_LAT_RANGE = (8.0, 37.0)
 INDIA_LON_RANGE = (68.0, 97.0)
@@ -114,6 +115,7 @@ def generate_beneficiaries(count: int) -> pd.DataFrame:
                 "phone": _unique_phone(seen_phones),
                 "annual_income": annual_income,
                 "category": random.choice(CATEGORIES),
+                "gender": random.choice(GENDERS),
                 "latitude": round(random.uniform(*INDIA_LAT_RANGE), 6),
                 "longitude": round(random.uniform(*INDIA_LON_RANGE), 6),
                 "desired_loan_amount": round(

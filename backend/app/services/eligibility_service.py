@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.enums import GenderEligibility, SchemeCategoryEligibility
 from app.models import Scheme, User
 from app.schemas.eligibility import EligibilityResponse
 from app.schemas.scheme import SchemeResponse
@@ -45,6 +46,12 @@ def evaluate_scheme_eligibility(
     requested_amount: Decimal,
 ) -> EligibilityResponse:
     """Evaluate a loaded scheme so orchestration can reuse rules without re-querying."""
+    scheme_category = SchemeCategoryEligibility(
+        scheme.category.category_name.strip().upper()
+    )
+    applicant_category = applicant.category.strip().upper()
+    scheme_gender = GenderEligibility(scheme.gender_eligibility.strip().upper())
+    applicant_gender = applicant.gender.strip().upper()
     checks = (
         (
             scheme.is_active,
@@ -52,10 +59,16 @@ def evaluate_scheme_eligibility(
             "Scheme is inactive",
         ),
         (
-            applicant.category.strip().casefold()
-            == scheme.category.category_name.strip().casefold(),
+            scheme_category is SchemeCategoryEligibility.ANY
+            or applicant_category == scheme_category.value,
             "Applicant category is eligible",
             "Applicant category does not match the scheme category",
+        ),
+        (
+            scheme_gender is GenderEligibility.ANY
+            or applicant_gender == scheme_gender.value,
+            "Applicant gender is eligible",
+            "Applicant gender does not match the scheme gender requirement",
         ),
         (
             applicant.annual_income <= scheme.max_income_limit,
