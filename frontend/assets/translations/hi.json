@@ -48,5 +48,10 @@
     "district_error": "कृपया अपना जिला चुनें",
     "category_error": "कृपया एक श्रेणी चुनें",
     "gender_error": "कृपया एक लिंग चुनें"
+  },
+  "location": {
+    "step_of_label": "चरण 2 का 2",
+    "header_label": "उपयोगकर्ता स्थान",
+    "pending_text": "स्थान यूआई लंबित है"
   }
 }
