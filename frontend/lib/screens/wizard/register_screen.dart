@@ -1,7 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import 'eligibility_screen.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -52,9 +56,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _submit() {
-    // UI/navigation only for now; API wiring lands in a later step.
-    _formKey.currentState!.validate();
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authProvider = context.read<AuthProvider>();
+
+    try {
+      // TEMPORARY placeholder values: this screen strictly collects only
+      // Full Name, Phone, and Password, but the backend's RegisterRequest
+      // requires annual_income and category. Real values must be captured
+      // via a profile-completion step (e.g. EligibilityScreen wired to
+      // PUT /api/users/me) — not yet implemented.
+      await authProvider.register(
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        password: _passwordController.text,
+        annualIncome: 0,
+        category: 'General',
+      );
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = switch (error) {
+        PhoneAlreadyRegisteredException(:final message) => message,
+        AuthException(:final message) => message,
+        _ => error.toString(),
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.errorRed, content: Text(message)),
+      );
+    }
   }
 
   @override
@@ -144,19 +179,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       },
                     ),
                     const SizedBox(height: 28),
-                    SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.deepNavy,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    Consumer<AuthProvider>(
+                      builder: (context, authProvider, _) {
+                        return SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: authProvider.isLoading ? null : _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.deepNavy,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: authProvider.isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text('auth.register_button'.tr()),
                           ),
-                        ),
-                        child: Text('auth.register_button'.tr()),
-                      ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextButton(

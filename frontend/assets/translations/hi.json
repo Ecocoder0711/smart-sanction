@@ -21,5 +21,32 @@
     "full_name_error": "कृपया अपना पूरा नाम दर्ज करें",
     "phone_error": "कृपया मान्य 10-अंकीय फ़ोन नंबर दर्ज करें",
     "password_error": "पासवर्ड कम से कम 8 अक्षरों का होना चाहिए"
+  },
+  "eligibility": {
+    "step_of_label": "चरण 1 का 2",
+    "header_label": "उपयोगकर्ता प्रोफ़ाइल",
+    "title": "उपयोगकर्ता प्रोफ़ाइल",
+    "subtitle": "कृपया कुछ बुनियादी वित्तीय जानकारी प्रदान करें ताकि हम आपको सही योजनाओं से मिला सकें।",
+    "annual_income_label": "वार्षिक आय",
+    "state_label": "राज्य",
+    "state_placeholder": "राज्य चुनें",
+    "district_label": "जिला",
+    "district_placeholder": "जिला चुनें",
+    "district_select_state_first": "पहले राज्य चुनें",
+    "social_category_label": "सामाजिक श्रेणी",
+    "category_general": "सामान्य",
+    "category_obc": "अन्य पिछड़ा वर्ग (OBC)",
+    "category_sc": "अनुसूचित जाति (SC)",
+    "category_st": "अनुसूचित जनजाति (ST)",
+    "gender_label": "लिंग",
+    "gender_male": "पुरुष",
+    "gender_female": "महिला",
+    "gender_other": "अन्य",
+    "continue_button": "जारी रखें",
+    "annual_income_error": "कृपया मान्य वार्षिक आय दर्ज करें",
+    "state_error": "कृपया अपना राज्य चुनें",
+    "district_error": "कृपया अपना जिला चुनें",
+    "category_error": "कृपया एक श्रेणी चुनें",
+    "gender_error": "कृपया एक लिंग चुनें"
   }
 }

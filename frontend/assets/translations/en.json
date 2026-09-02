@@ -21,5 +21,32 @@
     "full_name_error": "Enter your full name",
     "phone_error": "Enter a valid 10-digit phone number",
     "password_error": "Password must be at least 8 characters"
+  },
+  "eligibility": {
+    "step_of_label": "Step 1 of 2",
+    "header_label": "User Profile",
+    "title": "User Profile",
+    "subtitle": "Please provide some basic financial information so we can match you with the right schemes.",
+    "annual_income_label": "Annual Income",
+    "state_label": "State",
+    "state_placeholder": "Select State",
+    "district_label": "District",
+    "district_placeholder": "Select District",
+    "district_select_state_first": "Select State first",
+    "social_category_label": "Social Category",
+    "category_general": "General",
+    "category_obc": "OBC",
+    "category_sc": "SC",
+    "category_st": "ST",
+    "gender_label": "Gender",
+    "gender_male": "Male",
+    "gender_female": "Female",
+    "gender_other": "Other",
+    "continue_button": "Continue",
+    "annual_income_error": "Enter a valid annual income",
+    "state_error": "Select your state",
+    "district_error": "Select your district",
+    "category_error": "Select a category",
+    "gender_error": "Select a gender"
   }
 }
