@@ -1,0 +1,25 @@
+{
+  "welcome": {
+    "title": "स्वागत है",
+    "subtitle": "अपने वित्तीय सहायता आवेदन को जारी रखने के लिए कृपया अपनी पसंदीदा भाषा चुनें।",
+    "language_english": "English",
+    "language_hindi": "हिंदी",
+    "info_settings_notice": "आप इसे बाद में सेटिंग्स में बदल सकते हैं।",
+    "voice_assistant": "वॉयस असिस्टेंट",
+    "continue_button": "जारी रखें"
+  },
+  "auth": {
+    "login_header": "लॉग इन करें",
+    "register_header": "पंजीकरण करें",
+    "full_name_label": "पूरा नाम",
+    "phone_number_label": "फ़ोन नंबर",
+    "password_label": "पासवर्ड",
+    "login_button": "लॉग इन करें",
+    "register_button": "पंजीकरण करें",
+    "no_account_register": "खाता नहीं है? पंजीकरण करें",
+    "have_account_login": "पहले से खाता है? लॉग इन करें",
+    "full_name_error": "कृपया अपना पूरा नाम दर्ज करें",
+    "phone_error": "कृपया मान्य 10-अंकीय फ़ोन नंबर दर्ज करें",
+    "password_error": "पासवर्ड कम से कम 8 अक्षरों का होना चाहिए"
+  }
+}

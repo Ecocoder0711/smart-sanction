@@ -1,12 +1,22 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/auth_provider.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/wizard/welcome_screen.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await EasyLocalization.ensureInitialized();
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('en'), Locale('hi')],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en'),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -29,12 +39,15 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'SMART-SANCTION',
+        localizationsDelegates: context.localizationDelegates,
+        supportedLocales: context.supportedLocales,
+        locale: context.locale,
         theme: ThemeData(
           colorScheme: colorScheme,
           textTheme: GoogleFonts.interTextTheme(),
           useMaterial3: true,
         ),
-        home: const HomeScreen(),
+        home: const WelcomeScreen(),
       ),
     );
   }
