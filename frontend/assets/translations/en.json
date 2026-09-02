@@ -52,6 +52,17 @@
   "location": {
     "step_of_label": "Step 2 of 2",
     "header_label": "User Location",
-    "pending_text": "Location UI Pending"
+    "description": "Used primarily for finding nearby partners.",
+    "allow_location_button": "Allow location access",
+    "location_acquired": "Location acquired: {lat}, {lng}",
+    "location_service_disabled": "Location services are disabled. Please enable GPS.",
+    "location_permission_denied": "Location permission denied",
+    "location_permission_denied_forever": "Location permission permanently denied. Enable it in device settings.",
+    "location_fetch_error": "Failed to fetch location",
+    "manual_divider_label": "OR manually select",
+    "location_field_label": "Location",
+    "location_field_hint": "Area, locality, or pincode",
+    "continue_button": "Continue",
+    "details_saved_message": "Details saved"
   }
 }

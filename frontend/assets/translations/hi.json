@@ -52,6 +52,17 @@
   "location": {
     "step_of_label": "चरण 2 का 2",
     "header_label": "उपयोगकर्ता स्थान",
-    "pending_text": "स्थान यूआई लंबित है"
+    "description": "मुख्य रूप से नज़दीकी भागीदारों को खोजने के लिए उपयोग किया जाता है।",
+    "allow_location_button": "स्थान की अनुमति दें",
+    "location_acquired": "स्थान प्राप्त हुआ: {lat}, {lng}",
+    "location_service_disabled": "स्थान सेवाएं अक्षम हैं। कृपया GPS सक्षम करें।",
+    "location_permission_denied": "स्थान की अनुमति अस्वीकृत",
+    "location_permission_denied_forever": "स्थान की अनुमति स्थायी रूप से अस्वीकृत है। कृपया इसे डिवाइस सेटिंग्स में सक्षम करें।",
+    "location_fetch_error": "स्थान प्राप्त करने में विफल",
+    "manual_divider_label": "या मैन्युअल रूप से चुनें",
+    "location_field_label": "स्थान",
+    "location_field_hint": "क्षेत्र, इलाका, या पिनकोड",
+    "continue_button": "जारी रखें",
+    "details_saved_message": "विवरण सहेजा गया"
   }
 }
