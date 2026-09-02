@@ -1,0 +1,39 @@
+# Keep the image build context small and free of local/secret files.
+# Without this, `docker build` uploads the entire local virtual environment
+# (hundreds of MB of platform-specific macOS/Windows binaries that would not
+# work inside a Linux image anyway).
+
+# Local secrets - never bake these into an image
+.env
+.env.*
+!.env.example
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Tests are run locally, not inside the runtime image
+tests/
+
+# Editors, OS files, and version control
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.git/
+.gitignore
+
+# Runtime files
+*.log
+*.db

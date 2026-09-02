@@ -1,0 +1,44 @@
+# Local development database for SMART-SANCTION.
+#
+# This replaces the long manual `docker run ... postgres:16` command that the
+# backend README used to document, so every teammate gets an identical
+# database with one command.
+#
+# The API itself is NOT run here: continue running it natively from the
+# backend/ virtual environment (see backend/README.md).
+#
+#   docker compose up -d          start Postgres in the background
+#   docker compose ps             check health
+#   docker compose logs -f db     follow database logs
+#   docker compose down           stop (data is kept in the named volume)
+#   docker compose down -v        stop AND delete all data
+#
+# Credentials default to the values in backend/.env.example, so an existing
+# backend/.env keeps working unchanged. Override them by exporting
+# POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB / POSTGRES_PORT.
+
+services:
+  db:
+    image: postgres:16
+    container_name: smart-sanction-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-smart_sanction}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # Lets `docker compose ps` report healthy only once Postgres actually
+      # accepts connections, instead of merely having started.
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-smart_sanction}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres-data:

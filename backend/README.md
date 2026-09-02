@@ -99,23 +99,32 @@ pip install -r requirements.txt
 
 ### 3. Start PostgreSQL
 
-To create the development database with Docker:
+The development database is defined in `docker-compose.yml` at the repository
+root, so every machine gets identical settings. From the repository root:
 
-```powershell
-docker run --name smart-sanction-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=change_me -e POSTGRES_DB=smart_sanction -p 5432:5432 -v smart-sanction-postgres-data:/var/lib/postgresql/data -d postgres:16
+```bash
+docker compose up -d
 ```
 
-On later runs, start the existing container:
+On later runs the same command starts the existing container. Check its state
+(`STATUS` reports `healthy` only once Postgres is accepting connections):
 
-```powershell
-docker start smart-sanction-postgres
+```bash
+docker compose ps
 ```
 
-Check its state:
+Other useful commands, from the repository root:
 
-```powershell
-docker ps --filter "name=smart-sanction-postgres"
+```bash
+docker compose logs -f db   # follow database logs
+docker compose down         # stop, keeping all data
+docker compose down -v      # stop and DELETE all data
 ```
+
+PostgreSQL is required. The project's Alembic migrations use PostgreSQL-only
+DDL, so pointing `DATABASE_URL` at SQLite will fail on `alembic upgrade head`.
+The automated test suite is unaffected: it builds its own isolated in-memory
+SQLite schema and never runs the migrations.
 
 ### 4. Configure the environment
 
@@ -124,7 +133,7 @@ Copy-Item .env.example .env
 python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Copy the generated value into `JWT_SECRET_KEY` in `.env`. The Docker command
+Copy the generated value into `JWT_SECRET_KEY` in `.env`. The Compose service
 above matches this example configuration:
 
 ```dotenv
@@ -370,7 +379,8 @@ alembic upgrade head
 python -m seed.seed_database
 
 # Stop PostgreSQL after stopping the local API with Ctrl+C
-docker stop smart-sanction-postgres
+# (run from the repository root; data is kept in the named volume)
+docker compose down
 ```
 
 ## Safety notes
