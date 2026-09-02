@@ -5,6 +5,7 @@ match_score/approval_probability/rank wiring deterministically, without
 depending on the gitignored random_forest_v1.joblib artifact being present.
 """
 
+import pickle
 from decimal import Decimal
 from pathlib import Path
 
@@ -31,6 +32,22 @@ class _FakePipeline:
     def predict_proba(self, features) -> np.ndarray:
         assert len(features) == len(self._approval_probabilities)
         return np.array([[1 - p, p] for p in self._approval_probabilities])
+
+
+class _PicklableEstimator:
+    """Module-level (therefore picklable) object satisfying the shape check."""
+
+    def predict_proba(self, features) -> np.ndarray:
+        return np.zeros((len(features), 2))
+
+
+class _ExplodingPipeline:
+    """Fails loudly if consulted; proves a call was skipped, not tolerated."""
+
+    def predict_proba(self, features) -> np.ndarray:
+        raise AssertionError(
+            f"predict_proba must not be called (got {len(features)} rows)"
+        )
 
 
 def _payload(candidates: list[MLCandidateInput]) -> MLMatchingInput:
@@ -65,10 +82,105 @@ def test_missing_artifact_reports_unavailable() -> None:
     assert adapter.available is False
 
 
+# Each payload below is a corruption mode that was observed to raise a
+# *different* exception type out of pickle (EOFError, IndexError, KeyError,
+# ValueError, UnpicklingError...). They are parametrised together because the
+# adapter's contract is the same for all of them: degrade, never raise.
+@pytest.mark.parametrize(
+    ("label", "payload"),
+    [
+        ("empty file", b""),
+        ("single byte", b"\x80"),
+        ("plain text", b"not a pickle at all, just prose"),
+        ("repeated non-opcode byte", bytes([182]) * 4096),
+        ("all zero bytes", bytes(4096)),
+        ("all 0xFF bytes", b"\xff" * 4096),
+        ("html error page", b"<html><body>404 Not Found</body></html>"),
+        (
+            "git-lfs pointer, not the model",
+            b"version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 44\n",
+        ),
+    ],
+)
+def test_corrupt_artifact_degrades_instead_of_raising(
+    tmp_path: Path,
+    label: str,
+    payload: bytes,
+) -> None:
+    artifact = tmp_path / "random_forest_v1.joblib"
+    artifact.write_bytes(payload)
+
+    adapter = RandomForestAdapter(artifact_path=artifact)
+
+    assert adapter.available is False, label
+
+
+def test_truncated_real_shaped_artifact_degrades(tmp_path: Path) -> None:
+    """Half a valid pickle stream: a plausible partial download or copy."""
+    artifact = tmp_path / "random_forest_v1.joblib"
+    full = pickle.dumps({"payload": list(range(10_000))})
+    artifact.write_bytes(full[: len(full) // 2])
+
+    assert RandomForestAdapter(artifact_path=artifact).available is False
+
+
+@pytest.mark.parametrize(
+    "wrong_object",
+    [
+        {"not": "a pipeline"},
+        [1, 2, 3],
+        42,
+        "a string, not an estimator",
+    ],
+)
+def test_valid_pickle_of_wrong_object_reports_unavailable(
+    tmp_path: Path,
+    wrong_object: object,
+) -> None:
+    """Unpickles cleanly but has no predict_proba.
+
+    Without the shape check this reported available=True and only failed once
+    a request reached predict(), i.e. as an HTTP 500 rather than a graceful
+    ml_status of "unavailable".
+    """
+    artifact = tmp_path / "random_forest_v1.joblib"
+    artifact.write_bytes(pickle.dumps(wrong_object))
+
+    assert RandomForestAdapter(artifact_path=artifact).available is False
+
+
+def test_directory_in_place_of_artifact_degrades(tmp_path: Path) -> None:
+    assert RandomForestAdapter(artifact_path=tmp_path).available is False
+
+
+def test_object_exposing_predict_proba_is_accepted(tmp_path: Path) -> None:
+    """The shape check must not reject a legitimate estimator.
+
+    Guards against tightening the check into something that only recognises
+    sklearn's concrete Pipeline class and rejects a valid replacement model.
+    """
+    artifact = tmp_path / "random_forest_v1.joblib"
+    artifact.write_bytes(pickle.dumps(_PicklableEstimator()))
+
+    assert RandomForestAdapter(artifact_path=artifact).available is True
+
+
 def test_predict_raises_when_unavailable() -> None:
     adapter = RandomForestAdapter(artifact_path=MISSING_ARTIFACT)
     with pytest.raises(MLUnavailableError):
         adapter.predict(_payload([_candidate(1, requested_amount="1", max_income_limit="1", max_loan_limit="1")]))
+
+
+def test_predict_returns_empty_without_calling_the_model_for_no_candidates() -> None:
+    """Regression: a zero-row frame makes sklearn raise, which became a 500.
+
+    Deterministic eligibility legitimately matches nothing for some requests,
+    and that must stay a valid empty result rather than an error.
+    """
+    adapter = RandomForestAdapter(artifact_path=MISSING_ARTIFACT)
+    adapter._pipeline = _ExplodingPipeline()
+
+    assert adapter.predict(_payload([])) == []
 
 
 def test_predict_populates_both_scores_and_orders_rank_by_match_score() -> None:

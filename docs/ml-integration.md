@@ -1,14 +1,23 @@
 # ML integration contract
 
-Phase 7 works without an ML implementation. The deterministic eligibility,
-financial, and partner-proximity results remain usable when ML is unavailable.
+ML is optional by design. The deterministic eligibility, financial, and
+partner-proximity results remain fully usable when ML is unavailable, and the
+API never fabricates a score in its place.
 
 ## Plug-in point
 
 Implement the `MatchingEngine` protocol in
 `backend/app/services/ml/contracts.py`, then inject that adapter into
-`matching_service.match_schemes(..., ml_engine=engine)`. Enable calls with
-`ML_AVAILABLE=true`. No engine is installed in Phase 7.
+`matching_service.match_schemes(..., ml_engine=engine)`.
+
+`RandomForestAdapter` (`backend/app/services/ml/random_forest_engine.py`) is
+the installed implementation. Calls are gated by `ML_AVAILABLE=true`.
+
+> **Variable name:** `ML_AVAILABLE`, with no prefix. `Settings` sets
+> `env_prefix="SMART_SANCTION_"`, but that prefix is not applied to a field
+> carrying an explicit `validation_alias`, so `SMART_SANCTION_ML_AVAILABLE` is
+> silently ignored. Enable it for one run with
+> `ML_AVAILABLE=true uvicorn app.main:app`.
 
 The adapter exposes:
 
@@ -23,6 +32,20 @@ If `ML_AVAILABLE=false`, no adapter is installed, `available` is false, or
 the adapter raises `MLUnavailableError`, the backend skips prediction,
 returns `ml_status: "unavailable"`, and leaves every candidate's `ml`
 value null.
+
+### Artifact failure modes
+
+`RandomForestAdapter` reports `available = False` — rather than raising — when
+the artifact is missing, empty, truncated, corrupt, unreadable, pickled by an
+incompatible scikit-learn version, or is a valid pickle of something that has
+no `predict_proba`. Each of those degrades to `ml_status: "unavailable"`; none
+of them fails the request. The `*.joblib` artifact is gitignored, so the
+missing case is the normal state of a fresh clone.
+
+An engine must also tolerate an **empty candidate tuple**: deterministic
+eligibility legitimately matches nothing for some requests, and that must stay
+a valid empty result. `RandomForestAdapter.predict` returns `[]` immediately
+in that case, because scikit-learn rejects a zero-row feature frame.
 
 ## Input
 
@@ -81,11 +104,19 @@ integer. Missing candidate predictions remain null.
 
 When a user later creates an application, `match_score` corresponds to
 `applications.ml_match_score` and `approval_probability` corresponds to
-`applications.ml_approval_probability`. Phase 7 never writes either field:
-both remain SQL `NULL` until a real ML integration and an explicit persistence
-policy are added.
+`applications.ml_approval_probability`. Neither field is written today: both
+remain SQL `NULL` until an explicit persistence policy is added. Matching
+results are transient.
 
-## HTTP example without ML
+`match_score` and `approval_probability` answer different questions and are
+never blended. `match_score` is cosine similarity between the applicant's
+(income, requested amount) and the scheme's (income cap, loan cap), so it
+varies per candidate and determines both ordering and `rank`.
+`approval_probability` comes from the Random Forest, whose features are all
+applicant-level — within a single request it is therefore identical across
+every candidate, and it must not be presented as a per-scheme score.
+
+## HTTP example
 
 `POST /api/match` accepts:
 
@@ -95,5 +126,7 @@ policy are added.
 
 The authenticated user comes only from the Bearer JWT. A response candidate
 contains separate `eligibility`, `financial`, `partners`, and nullable
-`ml` sections. With Phase 7 configuration, the response reports
-`"ml_status": "unavailable"` and `"ml": null`.
+`ml` sections. With the default configuration (`ML_AVAILABLE=false`) the
+response reports `"ml_status": "unavailable"` and `"ml": null`; with ML
+enabled and a loadable artifact it reports `"ml_status": "available"` and
+populates `match_score`, `approval_probability`, and `rank`.

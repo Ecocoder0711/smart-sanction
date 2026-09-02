@@ -11,7 +11,15 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
-    """Validated settings loaded from environment variables or backend/.env."""
+    """Validated settings loaded from environment variables or backend/.env.
+
+    Note on naming: `env_prefix` below applies only to fields that do NOT
+    declare a `validation_alias`. Every aliased field here (DATABASE_URL,
+    JWT_*, ACCESS_TOKEN_EXPIRE_MINUTES, RECOMMENDED_PARTNER_RADIUS_KM,
+    ML_AVAILABLE) is read by that bare alias, so `SMART_SANCTION_ML_AVAILABLE`
+    is silently ignored and `ML_AVAILABLE` is the variable that works. Only
+    `environment` and `debug` take the prefix.
+    """
 
     app_name: str = "SMART-SANCTION API"
     app_version: str = "0.1.0"

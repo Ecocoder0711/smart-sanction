@@ -32,19 +32,42 @@ ARTIFACT_PATH = Path(__file__).resolve().parent / "artifacts" / "random_forest_v
 FEATURE_COLUMNS = ["annual_income", "desired_loan_amount", "previous_default", "category"]
 
 
+def _load_pipeline(artifact_path: Path) -> object | None:
+    """Return a usable trained pipeline, or None if the artifact is unusable.
+
+    Reading a possibly-corrupt artifact is not a narrow failure mode. Feeding
+    damaged bytes to pickle was measured to raise EOFError, IndexError,
+    KeyError, ValueError, TypeError, AttributeError, MemoryError, zlib.error
+    or UnpicklingError depending purely on where the damage lands, and an
+    incompatible scikit-learn version adds more (private internals such as
+    ColumnTransformer's remainder handling change with no deprecation cycle).
+    Enumerating that open-ended set would leave the API returning 500 on
+    whichever type was missed, so the load is guarded broadly.
+
+    That breadth is safe here because the guarded block is exactly one
+    third-party call with no logic of ours inside it, so it cannot swallow a
+    bug in this codebase; BaseException (KeyboardInterrupt, SystemExit) still
+    propagates untouched.
+    """
+    try:
+        pipeline = joblib.load(artifact_path)
+    except Exception:  # noqa: BLE001 - see docstring; scope is one library call
+        return None
+
+    # A file can unpickle cleanly and still not be the trained pipeline -- a
+    # stale export, or the wrong file copied into place. Reject it now, while
+    # the caller can still degrade to ml_status "unavailable", rather than at
+    # request time where a missing predict_proba surfaces as a 500.
+    if not callable(getattr(pipeline, "predict_proba", None)):
+        return None
+    return pipeline
+
+
 class RandomForestAdapter:
     """Loads a trained pipeline and predicts approval probability per candidate."""
 
     def __init__(self, artifact_path: Path = ARTIFACT_PATH) -> None:
-        try:
-            self._pipeline = joblib.load(artifact_path)
-        except (OSError, EOFError, AttributeError, ImportError, ValueError):
-            # Missing, unreadable, or truncated artifact, or one pickled by an
-            # incompatible scikit-learn/joblib version (private internals like
-            # ColumnTransformer's remainder handling can change between
-            # versions with no deprecation cycle): degrade gracefully instead
-            # of raising during construction.
-            self._pipeline = None
+        self._pipeline = _load_pipeline(artifact_path)
 
     @property
     def available(self) -> bool:
@@ -55,6 +78,13 @@ class RandomForestAdapter:
         """Return one approval-probability prediction per candidate."""
         if not self.available:
             raise MLUnavailableError("RandomForest model artifact is not loaded")
+
+        if not payload.candidates:
+            # Deterministic eligibility matched no scheme. That is a valid
+            # empty business result, but predict_proba rejects a zero-row
+            # frame ("Found array with 0 sample(s)"), so return before one is
+            # built. compute_similarity_scores short-circuits identically.
+            return []
 
         # TODO: add previous_default to User schema so real applicant history
         # can replace this hardcoded default once it's persisted.

@@ -1,11 +1,22 @@
-"""End-to-end tests for authenticated deterministic matching orchestration."""
+"""End-to-end tests for authenticated deterministic matching orchestration.
 
+Every test here asserts the ML-*disabled* contract, so each one takes the
+`ml_disabled` fixture rather than inheriting whatever ML_AVAILABLE happens to
+be set to in the developer's shell. The ML-enabled contract lives in
+test_matching_ml_enabled.py.
+"""
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Application
 from tests.helpers import register_and_login
+
+# Applied to every test in this module: these assertions are only meaningful
+# with ML off, and pinning it here keeps them true under `ML_AVAILABLE=true`.
+pytestmark = pytest.mark.usefixtures("ml_disabled")
 
 
 def _match(
