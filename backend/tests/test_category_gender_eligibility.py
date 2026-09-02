@@ -241,17 +241,26 @@ def test_invalid_applicant_categories_are_rejected(
     assert response.status_code == 422
 
 
-def test_legacy_general_casing_and_omitted_gender_remain_compatible(
+def test_legacy_general_casing_compatible_and_omitted_gender_stays_null(
     client: TestClient,
 ) -> None:
+    """Casing is still normalised, but gender is no longer defaulted.
+
+    Multi-step registration made gender nullable: an unanswered gender must
+    stay NULL rather than silently becoming OTHER, which is a real value
+    that would affect gender-targeted scheme eligibility.
+    """
     payload = registration_payload("9880000089")
     payload["category"] = "General"
+    payload.pop("gender")
 
     response = client.post("/api/auth/register", json=payload)
 
     assert response.status_code == 201
-    assert response.json()["category"] == "GENERAL"
-    assert response.json()["gender"] == "OTHER"
+    body = response.json()
+    assert body["category"] == "GENERAL"
+    assert body["gender"] is None
+    assert body["profile_complete"] is False
 
 
 def test_matching_applies_category_and_gender_together(
@@ -280,7 +289,12 @@ def test_matching_applies_category_and_gender_together(
 def test_seed_data_uses_only_valid_independent_dimensions(
     db_session: Session,
 ) -> None:
-    users = list(db_session.scalars(select(User)))
+    # Restrict to seeded applicants (they carry no password hash). Users
+    # registered by other tests share this session-scoped database, and one of
+    # them deliberately omits gender to exercise incomplete profiles.
+    users = list(
+        db_session.scalars(select(User).where(User.password_hash.is_(None)))
+    )
     schemes = list(db_session.scalars(select(Scheme)))
     categories = list(db_session.scalars(select(SchemeCategory)))
 

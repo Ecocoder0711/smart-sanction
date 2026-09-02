@@ -3,21 +3,44 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from app.core.enums import ApplicantCategory, Gender
 
 INDIAN_MOBILE_PATTERN = r"^(?:\+91|91)?[6-9]\d{9}$"
 
+# Profile fields eligibility and ML require before they can run at all.
+# Single source of truth for both profile_complete and the service-layer guard.
+PROFILE_REQUIRED_FIELDS: tuple[str, ...] = ("annual_income", "category", "gender")
+
 
 class UserBase(BaseModel):
-    """Fields shared by user creation contracts."""
+    """Fields shared by user creation contracts.
+
+    annual_income, category, and gender are optional so registration can
+    complete with name/phone/password alone; the applicant supplies them
+    afterwards through PUT /api/users/me. They stay strictly validated
+    whenever a value is actually supplied, and no default is substituted --
+    a missing value is stored as NULL, never as a placeholder.
+    """
 
     full_name: str = Field(min_length=2, max_length=150)
     phone: str = Field(pattern=INDIAN_MOBILE_PATTERN, max_length=15)
-    annual_income: Decimal = Field(ge=0, max_digits=14, decimal_places=2)
-    category: ApplicantCategory
-    gender: Gender = Gender.OTHER
+    annual_income: Decimal | None = Field(
+        default=None,
+        ge=0,
+        max_digits=14,
+        decimal_places=2,
+    )
+    category: ApplicantCategory | None = None
+    gender: Gender | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
@@ -90,3 +113,16 @@ class UserResponse(UserBase):
     district: str | None = None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def profile_complete(self) -> bool:
+        """Report whether eligibility and matching can run for this user.
+
+        Derived on every response rather than stored, so it can never drift
+        out of sync with the underlying columns.
+        """
+        return all(
+            getattr(self, field_name) is not None
+            for field_name in PROFILE_REQUIRED_FIELDS
+        )

@@ -12,12 +12,15 @@ def registration_payload(
     *,
     password: str = DEFAULT_PASSWORD,
 ) -> dict[str, Any]:
-    """Return a valid synthetic registration request."""
+    """Return a valid synthetic registration request for a COMPLETE profile."""
     return {
         "full_name": f"Authenticated Test User {phone[-2:]}",
         "phone": phone,
         "annual_income": "325000.00",
         "category": "GENERAL",
+        # Supplied explicitly: gender is no longer defaulted server-side, so
+        # omitting it now creates an intentionally incomplete profile.
+        "gender": "OTHER",
         "latitude": 23.2599,
         "longitude": 77.4126,
         "password": password,

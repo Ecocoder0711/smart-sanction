@@ -9,10 +9,42 @@ from app.core.enums import GenderEligibility, SchemeCategoryEligibility
 from app.models import Scheme, User
 from app.schemas.eligibility import EligibilityResponse
 from app.schemas.scheme import SchemeResponse
+from app.schemas.user import PROFILE_REQUIRED_FIELDS
 
 
 class SchemeNotFoundError(ValueError):
     """Raised when an eligibility request references no stored scheme."""
+
+
+class ProfileIncompleteError(ValueError):
+    """Raised when an applicant has not supplied the required profile fields."""
+
+    def __init__(self, missing_fields: list[str]) -> None:
+        self.missing_fields = missing_fields
+        super().__init__(
+            "Profile is incomplete: " + ", ".join(missing_fields)
+        )
+
+
+def missing_profile_fields(applicant: User) -> list[str]:
+    """Return the required profile fields this applicant has not supplied."""
+    return [
+        field_name
+        for field_name in PROFILE_REQUIRED_FIELDS
+        if getattr(applicant, field_name) is None
+    ]
+
+
+def require_complete_profile(applicant: User) -> None:
+    """Refuse evaluation while any required profile field is still missing.
+
+    Deliberately raises instead of substituting a default: a placeholder
+    income, category, or gender would silently produce wrong eligibility
+    results and would leak into the ML feature vectors.
+    """
+    missing = missing_profile_fields(applicant)
+    if missing:
+        raise ProfileIncompleteError(missing)
 
 
 def check_eligibility(
@@ -23,6 +55,7 @@ def check_eligibility(
     requested_amount: Decimal,
 ) -> EligibilityResponse:
     """Evaluate every rule represented by the current user/scheme schema."""
+    require_complete_profile(applicant)
     statement = (
         select(Scheme)
         .options(joinedload(Scheme.category))

@@ -114,6 +114,11 @@ def match_schemes(
     ml_engine: MatchingEngine | None = None,
 ) -> MatchResponse:
     """Compose eligibility, finance, proximity, and optional ML results."""
+    # Guard before any evaluation: this is the single entry point feeding both
+    # deterministic eligibility and every ML score, so refusing here keeps
+    # None out of the Random Forest and cosine-similarity feature vectors.
+    eligibility_service.require_complete_profile(user)
+
     active_schemes = sorted(
         scheme_service.list_schemes(session, is_active=True),
         key=lambda scheme: scheme.id,

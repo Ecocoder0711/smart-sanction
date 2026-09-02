@@ -170,7 +170,7 @@ alembic current
 The current migration head is:
 
 ```text
-20260829_0001
+20260904_0004
 ```
 
 ### 6. Seed synthetic data
@@ -241,8 +241,10 @@ Applicant category and gender are independent eligibility dimensions.
 - `Women`, `Female`, and `Minority` are not applicant category values.
 - If an older client sends `General`, the API safely normalizes it to
   `GENERAL`.
-- If a client omits gender during registration, the compatibility default is
-  `OTHER`.
+- If a client omits gender during registration, it is stored as `NULL`, not
+  defaulted. `OTHER` means the applicant explicitly selected "Other"; a
+  missing gender is `NULL`. The two are never conflated, because `OTHER` is a
+  real value that scheme gender targeting matches against.
 
 Every scheme exposes two separate targeting fields:
 
@@ -253,6 +255,40 @@ Every scheme exposes two separate targeting fields:
 `FEMALE` requires both conditions; a scheme targeting `ANY` and `FEMALE`
 accepts female applicants from all four categories. Income, amount, and active
 scheme rules are evaluated independently and remain unchanged.
+
+## Multi-step registration
+
+A profile can be built up across several screens instead of all at once, so
+`annual_income`, `category`, and `gender` are nullable and may be `NULL`
+immediately after registration.
+
+| Step | Request | Fields |
+| ---- | ------- | ------ |
+| 1 | `POST /api/auth/register` | `full_name`, `phone`, `password` |
+| 2 | `PUT /api/users/me` | `annual_income`, `category`, `gender`, `state`, `district` |
+| 3 | `PUT /api/users/me` | `latitude`, `longitude` |
+
+- Login works immediately after step 1; authentication never depends on
+  profile completeness.
+- Every user response includes `profile_complete`, a derived boolean that is
+  `true` only when `annual_income`, `category`, and `gender` are all present.
+  It is computed per response and never stored, so it cannot fall out of sync.
+- Supplying these fields at registration is still fully supported, and a
+  supplied value is validated exactly as strictly as before. Optional means
+  omissible, not unvalidated.
+- `POST /api/eligibility/check` and `POST /api/match` require a complete
+  profile. An incomplete profile returns `400` naming the missing fields:
+
+  ```json
+  {"detail": {"message": "Profile is incomplete",
+              "missing_fields": ["annual_income", "category", "gender"]}}
+  ```
+
+  No placeholder value is ever substituted, so an unanswered field cannot
+  reach the eligibility rules or the ML feature vectors.
+- `GET /api/partners/routed` is unaffected: it depends only on stored
+  coordinates and still returns `400 "User location is not configured"` when
+  they are missing.
 
 ## API endpoints
 

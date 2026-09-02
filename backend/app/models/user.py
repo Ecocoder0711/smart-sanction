@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import CheckConstraint, DateTime, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.enums import Gender
 from app.database.database import Base
 
 if TYPE_CHECKING:
@@ -46,14 +45,15 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     full_name: Mapped[str] = mapped_column(String(150), nullable=False)
     phone: Mapped[str] = mapped_column(String(15), nullable=False)
-    annual_income: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False)
-    gender: Mapped[str] = mapped_column(
-        String(16),
-        nullable=False,
-        default=Gender.OTHER.value,
-        server_default=Gender.OTHER.value,
+    # Nullable so a user can register with name/phone/password alone and
+    # complete the profile through PUT /api/users/me. No placeholder value is
+    # ever stored: eligibility and ML refuse to run until these are supplied.
+    annual_income: Mapped[Decimal | None] = mapped_column(
+        Numeric(14, 2),
+        nullable=True,
     )
+    category: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(16), nullable=True)
     state: Mapped[str | None] = mapped_column(String(100), nullable=True)
     district: Mapped[str | None] = mapped_column(String(100), nullable=True)
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9, 6), nullable=True)
