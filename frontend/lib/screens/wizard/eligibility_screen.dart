@@ -2,10 +2,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/india_locations.dart';
 import '../auth/widgets/trust_footer.dart';
 
-class _CategoryOption {
-  const _CategoryOption(this.value, this.labelKey);
+class _ChipOption {
+  const _ChipOption(this.value, this.labelKey);
 
   final String value;
   final String labelKey;
@@ -23,53 +24,32 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
   static const Color _borderColor = Color(0xFFD1D5DB);
   static const Color _progressTrackColor = Color(0xFFD9E3F4);
 
-  // Static placeholder lists — no backend source for state/district exists
-  // yet, so these are UI-only pending a real data source.
-  static const List<String> _states = [
-    'Andhra Pradesh',
-    'Bihar',
-    'Delhi',
-    'Gujarat',
-    'Karnataka',
-    'Kerala',
-    'Madhya Pradesh',
-    'Maharashtra',
-    'Punjab',
-    'Rajasthan',
-    'Tamil Nadu',
-    'Uttar Pradesh',
-    'West Bengal',
+  static const List<_ChipOption> _categories = [
+    _ChipOption('General', 'eligibility.category_general'),
+    _ChipOption('OBC', 'eligibility.category_obc'),
+    _ChipOption('SC', 'eligibility.category_sc'),
+    _ChipOption('ST', 'eligibility.category_st'),
   ];
 
-  static const List<String> _districts = [
-    'District 1',
-    'District 2',
-    'District 3',
-    'District 4',
-  ];
-
-  static const List<_CategoryOption> _categories = [
-    _CategoryOption('General', 'eligibility.category_general'),
-    _CategoryOption('OBC', 'eligibility.category_obc'),
-    _CategoryOption('SC', 'eligibility.category_sc'),
-    _CategoryOption('ST', 'eligibility.category_st'),
-    _CategoryOption('Women', 'eligibility.category_women'),
-    _CategoryOption('Minority', 'eligibility.category_minority'),
+  static const List<_ChipOption> _genders = [
+    _ChipOption('Male', 'eligibility.gender_male'),
+    _ChipOption('Female', 'eligibility.gender_female'),
+    _ChipOption('Other', 'eligibility.gender_other'),
   ];
 
   final _formKey = GlobalKey<FormState>();
   final _annualIncomeController = TextEditingController();
-  final _amountController = TextEditingController();
 
   String? _selectedState;
   String? _selectedDistrict;
   String? _selectedCategory;
   String? _categoryError;
+  String? _selectedGender;
+  String? _genderError;
 
   @override
   void dispose() {
     _annualIncomeController.dispose();
-    _amountController.dispose();
     super.dispose();
   }
 
@@ -102,12 +82,16 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
     // UI only for now; API wiring (ApiService.fetchMatches) lands later.
     final isFormValid = _formKey.currentState!.validate();
     final isCategoryValid = _selectedCategory != null;
+    final isGenderValid = _selectedGender != null;
 
     setState(() {
-      _categoryError = isCategoryValid ? null : 'eligibility.category_error'.tr();
+      _categoryError = isCategoryValid
+          ? null
+          : 'eligibility.category_error'.tr();
+      _genderError = isGenderValid ? null : 'eligibility.gender_error'.tr();
     });
 
-    if (isFormValid && isCategoryValid) {
+    if (isFormValid && isCategoryValid && isGenderValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Form valid — API wiring pending')),
       );
@@ -121,8 +105,40 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
     );
   }
 
+  Widget _chipGroup({
+    required List<_ChipOption> options,
+    required String? selectedValue,
+    required ValueChanged<String> onSelected,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((option) {
+        final isSelected = selectedValue == option.value;
+        return ChoiceChip(
+          label: Text(option.labelKey.tr()),
+          selected: isSelected,
+          onSelected: (_) => onSelected(option.value),
+          backgroundColor: AppColors.softGray,
+          selectedColor: AppColors.deepNavy.withValues(alpha: 0.1),
+          side: BorderSide(
+            color: isSelected ? AppColors.deepNavy : _borderColor,
+          ),
+          labelStyle: TextStyle(
+            color: isSelected ? AppColors.deepNavy : Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final districtOptions = _selectedState == null
+        ? const <String>[]
+        : IndiaLocations.stateDistricts[_selectedState] ?? const <String>[];
+
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
@@ -165,7 +181,7 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(999),
                       child: const LinearProgressIndicator(
-                        value: 0.4,
+                        value: 0.5,
                         minHeight: 8,
                         backgroundColor: _progressTrackColor,
                         valueColor: AlwaysStoppedAnimation(
@@ -203,7 +219,9 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            _fieldLabel('eligibility.annual_income_label'.tr()),
+                            _fieldLabel(
+                              'eligibility.annual_income_label'.tr(),
+                            ),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _annualIncomeController,
@@ -226,18 +244,28 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
                               initialValue: _selectedState,
+                              isExpanded: true,
                               decoration: _fieldDecoration(),
-                              hint: Text('eligibility.state_placeholder'.tr()),
-                              items: _states
+                              hint: Text(
+                                'eligibility.state_placeholder'.tr(),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              items: IndiaLocations.states
                                   .map(
                                     (state) => DropdownMenuItem(
                                       value: state,
-                                      child: Text(state),
+                                      child: Text(
+                                        state,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   )
                                   .toList(),
                               onChanged: (value) {
-                                setState(() => _selectedState = value);
+                                setState(() {
+                                  _selectedState = value;
+                                  _selectedDistrict = null;
+                                });
                               },
                               validator: (value) {
                                 if (value == null) {
@@ -251,44 +279,36 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
                               initialValue: _selectedDistrict,
+                              isExpanded: true,
                               decoration: _fieldDecoration(),
                               hint: Text(
-                                'eligibility.district_placeholder'.tr(),
+                                _selectedState == null
+                                    ? 'eligibility.district_select_state_first'
+                                          .tr()
+                                    : 'eligibility.district_placeholder'.tr(),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              items: _districts
+                              items: districtOptions
                                   .map(
                                     (district) => DropdownMenuItem(
                                       value: district,
-                                      child: Text(district),
+                                      child: Text(
+                                        district,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   )
                                   .toList(),
-                              onChanged: (value) {
-                                setState(() => _selectedDistrict = value);
-                              },
+                              onChanged: _selectedState == null
+                                  ? null
+                                  : (value) {
+                                      setState(
+                                        () => _selectedDistrict = value,
+                                      );
+                                    },
                               validator: (value) {
                                 if (value == null) {
                                   return 'eligibility.district_error'.tr();
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            _fieldLabel(
-                              'eligibility.estimated_amount_label'.tr(),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _amountController,
-                              keyboardType: TextInputType.number,
-                              decoration: _fieldDecoration(
-                                prefixText: '₹ ',
-                                hintText: '0.00',
-                              ),
-                              validator: (value) {
-                                final amount = double.tryParse(value ?? '');
-                                if (amount == null || amount <= 0) {
-                                  return 'eligibility.amount_error'.tr();
                                 }
                                 return null;
                               },
@@ -298,42 +318,43 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                               'eligibility.social_category_label'.tr(),
                             ),
                             const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _categories.map((category) {
-                                final isSelected =
-                                    _selectedCategory == category.value;
-                                return ChoiceChip(
-                                  label: Text(category.labelKey.tr()),
-                                  selected: isSelected,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _selectedCategory = category.value;
-                                      _categoryError = null;
-                                    });
-                                  },
-                                  backgroundColor: AppColors.softGray,
-                                  selectedColor: AppColors.deepNavy
-                                      .withValues(alpha: 0.1),
-                                  side: BorderSide(
-                                    color: isSelected
-                                        ? AppColors.deepNavy
-                                        : _borderColor,
-                                  ),
-                                  labelStyle: TextStyle(
-                                    color: isSelected
-                                        ? AppColors.deepNavy
-                                        : Colors.black87,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                );
-                              }).toList(),
+                            _chipGroup(
+                              options: _categories,
+                              selectedValue: _selectedCategory,
+                              onSelected: (value) {
+                                setState(() {
+                                  _selectedCategory = value;
+                                  _categoryError = null;
+                                });
+                              },
                             ),
                             if (_categoryError != null) ...[
                               const SizedBox(height: 8),
                               Text(
                                 _categoryError!,
+                                style: const TextStyle(
+                                  color: AppColors.errorRed,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            _fieldLabel('eligibility.gender_label'.tr()),
+                            const SizedBox(height: 8),
+                            _chipGroup(
+                              options: _genders,
+                              selectedValue: _selectedGender,
+                              onSelected: (value) {
+                                setState(() {
+                                  _selectedGender = value;
+                                  _genderError = null;
+                                });
+                              },
+                            ),
+                            if (_genderError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _genderError!,
                                 style: const TextStyle(
                                   color: AppColors.errorRed,
                                   fontSize: 12,
@@ -352,13 +373,8 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text('eligibility.find_schemes_button'.tr()),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.search, size: 20),
-                                  ],
+                                child: Text(
+                                  'eligibility.continue_button'.tr(),
                                 ),
                               ),
                             ),
