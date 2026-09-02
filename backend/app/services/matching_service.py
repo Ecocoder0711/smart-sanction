@@ -1,6 +1,7 @@
 """Orchestration for deterministic matching and the optional ML extension point."""
 
 from collections.abc import Sequence
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -98,6 +99,13 @@ def _prediction_map(
     return "available", {item.scheme_id: item for item in predictions}
 
 
+def _candidate_sort_key(candidate: MatchCandidate) -> tuple[int, Decimal]:
+    """Rank scored candidates by match_score descending; unscored ones last."""
+    if candidate.ml is not None and candidate.ml.match_score is not None:
+        return (0, -candidate.ml.match_score)
+    return (1, Decimal(0))
+
+
 def match_schemes(
     session: Session,
     user: User,
@@ -158,6 +166,13 @@ def match_schemes(
                 ),
             )
         )
+
+    # Order by match_score (applicant-to-scheme financial fit) when ML
+    # supplied one; candidates without a score (ML unavailable, or that
+    # scheme had no prediction) keep their original scheme.id order.
+    # list.sort() is stable, and `candidates` already arrives in scheme.id
+    # order, so this is also the deterministic tie-break for equal scores.
+    candidates.sort(key=_candidate_sort_key)
 
     count = len(candidates)
     message = (

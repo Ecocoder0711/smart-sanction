@@ -22,6 +22,7 @@ from app.services.ml.contracts import (
     MLMatchingInput,
     MLUnavailableError,
 )
+from app.services.ml.similarity import compute_similarity_scores
 
 ARTIFACT_PATH = Path(__file__).resolve().parent / "artifacts" / "random_forest_v1.joblib"
 
@@ -71,21 +72,34 @@ class RandomForestAdapter:
             ],
             columns=FEATURE_COLUMNS,
         )
-        probabilities = self._pipeline.predict_proba(features)[:, 1]
+        approval_probabilities = self._pipeline.predict_proba(features)[:, 1]
+        similarity_scores = compute_similarity_scores(payload.applicant, payload.candidates)
+
+        # Rank reflects match_score (the applicant-to-scheme financial fit),
+        # since that is what the final API response is ordered by -- see
+        # matching_service.py. sorted() is stable, and payload.candidates
+        # already arrives in scheme.id order, so equal scores tie-break by
+        # scheme.id deterministically.
         ranked_order = sorted(
-            range(len(probabilities)), key=lambda i: probabilities[i], reverse=True
+            range(len(similarity_scores)),
+            key=lambda i: similarity_scores[i],
+            reverse=True,
         )
         ranks = {index: rank for rank, index in enumerate(ranked_order, start=1)}
 
         return [
             MLCandidatePrediction(
                 scheme_id=candidate.scheme_id,
-                match_score=None,
-                approval_probability=Decimal(str(round(float(probability), 5))),
+                # Clamped defensively: both vectors are non-negative, so
+                # cosine similarity is mathematically within [0, 1] already,
+                # but this guards against a float epsilon overshoot tripping
+                # the contract's ge=0/le=1 validation.
+                match_score=Decimal(str(round(max(0.0, min(1.0, similarity)), 5))),
+                approval_probability=Decimal(str(round(float(approval), 5))),
                 rank=ranks[i],
             )
-            for i, (candidate, probability) in enumerate(
-                zip(payload.candidates, probabilities)
+            for i, (candidate, similarity, approval) in enumerate(
+                zip(payload.candidates, similarity_scores, approval_probabilities)
             )
         ]
 
