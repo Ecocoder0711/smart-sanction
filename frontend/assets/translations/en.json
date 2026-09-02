@@ -143,7 +143,24 @@
     "moratorium_value": "12 Months",
     "moratorium_subtitle": "No payments required",
     "footer_text": "Based on these estimates, you can proceed to locate participating financial institutions to process your application.",
-    "find_banks_button": "Find Nearby Banks",
-    "nearby_banks_pending": "Nearby banks UI pending"
+    "find_banks_button": "Find Nearby Banks"
+  },
+  "nearby_banks": {
+    "title": "Select a Processing Center",
+    "subtitle": "Review nearby channel partners to finalize your application submission. Selection depends on daily available quota.",
+    "step_label": "Step 4 of 4: Center Selection",
+    "your_location_label": "Your Location",
+    "your_location_address": "123 Financial District, Capital City",
+    "partners_header": "Nearby Partners",
+    "partners_found_badge": "{count} found",
+    "quota_available": "Quota Available",
+    "quota_exhausted": "Quota Exhausted",
+    "select_center_button": "Select Center",
+    "unavailable_button": "Unavailable Today",
+    "lock_notice": "Your application will be locked once a center is selected.",
+    "save_draft_button": "Save Draft",
+    "save_draft_snackbar": "Scheme saved to drafts!",
+    "directions_unavailable": "Could not open Google Maps",
+    "center_selected_snackbar": "{name} selected"
   }
 }
