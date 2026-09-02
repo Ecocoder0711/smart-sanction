@@ -5,6 +5,21 @@
     "language_english": "English",
     "language_hindi": "हिंदी",
     "info_settings_notice": "You can change this later in settings.",
-    "voice_assistant": "Voice Assistant"
+    "voice_assistant": "Voice Assistant",
+    "continue_button": "Continue"
+  },
+  "auth": {
+    "login_header": "Log In",
+    "register_header": "Register",
+    "full_name_label": "Full Name",
+    "phone_number_label": "Phone Number",
+    "password_label": "Password",
+    "login_button": "Log In",
+    "register_button": "Register",
+    "no_account_register": "Don't have an account? Register",
+    "have_account_login": "Already have an account? Log In",
+    "full_name_error": "Enter your full name",
+    "phone_error": "Enter a valid 10-digit phone number",
+    "password_error": "Password must be at least 8 characters"
   }
 }
