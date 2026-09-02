@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/scheme.dart';
 import '../../services/api_service.dart';
+import '../scheme_matching/scheme_matching_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -76,6 +77,17 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SchemeMatchingScreen(),
+            ),
+          );
+        },
+        child: const Icon(Icons.search),
       ),
     );
   }
