@@ -143,7 +143,24 @@
     "moratorium_value": "12 महीने",
     "moratorium_subtitle": "कोई भुगतान आवश्यक नहीं",
     "footer_text": "इन अनुमानों के आधार पर, आप अपने आवेदन को संसाधित करने के लिए भाग लेने वाले वित्तीय संस्थानों का पता लगाने हेतु आगे बढ़ सकते हैं।",
-    "find_banks_button": "नज़दीकी बैंक खोजें",
-    "nearby_banks_pending": "नज़दीकी बैंक यूआई लंबित है"
+    "find_banks_button": "नज़दीकी बैंक खोजें"
+  },
+  "nearby_banks": {
+    "title": "प्रोसेसिंग केंद्र चुनें",
+    "subtitle": "अपने आवेदन को अंतिम रूप देने के लिए नज़दीकी चैनल भागीदारों की समीक्षा करें। चयन दैनिक उपलब्ध कोटे पर निर्भर करता है।",
+    "step_label": "चरण 4 का 4: केंद्र चयन",
+    "your_location_label": "आपका स्थान",
+    "your_location_address": "123 वित्तीय जिला, राजधानी शहर",
+    "partners_header": "नज़दीकी भागीदार",
+    "partners_found_badge": "{count} मिले",
+    "quota_available": "कोटा उपलब्ध",
+    "quota_exhausted": "कोटा समाप्त",
+    "select_center_button": "केंद्र चुनें",
+    "unavailable_button": "आज अनुपलब्ध",
+    "lock_notice": "केंद्र चुने जाने के बाद आपका आवेदन लॉक हो जाएगा।",
+    "save_draft_button": "मसौदा सहेजें",
+    "save_draft_snackbar": "योजना मसौदे में सहेजी गई!",
+    "directions_unavailable": "Google Maps नहीं खोला जा सका",
+    "center_selected_snackbar": "{name} चयनित"
   }
 }

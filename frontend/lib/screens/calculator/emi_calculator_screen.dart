@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../auth/widgets/trust_footer.dart';
+import '../scheme_matching/nearby_banks_screen.dart';
 
 class EmiCalculatorScreen extends StatefulWidget {
   const EmiCalculatorScreen({
@@ -62,9 +63,10 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> {
     return _netLoan * r * factor / (factor - 1);
   }
 
-  void _showNearbyBanksPending() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('calculator.nearby_banks_pending'.tr())),
+  void _goToNearbyBanks() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NearbyBanksScreen()),
     );
   }
 
@@ -270,7 +272,7 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _showNearbyBanksPending,
+                          onPressed: _goToNearbyBanks,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.emeraldGreen,
                             foregroundColor: Colors.white,
