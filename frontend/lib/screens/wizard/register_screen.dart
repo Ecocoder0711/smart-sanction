@@ -1,7 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_error_messages.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/registration_draft_provider.dart';
 import 'eligibility_screen.dart';
 import 'login_screen.dart';
 
@@ -53,18 +57,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  void _submit() {
-    // UI/navigation only — not connected to the backend yet.
-    if (_formKey.currentState!.validate()) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = context.read<AuthProvider>();
+    final draft = context.read<RegistrationDraftProvider>();
+    final fullName = _fullNameController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+
+    draft.setRegistrationDetails(
+      fullName: fullName,
+      phone: phone,
+      password: password,
+    );
+
+    try {
+      // Registers and then logs in, so a token is persisted before we leave
+      // this screen; the later profile steps need one.
+      await auth.registerMinimal(
+        fullName: fullName,
+        phone: phone,
+        password: password,
       );
+    } on Exception catch (error) {
+      if (!mounted) return;
+      _showError(describeApiError(error, fallbackKey: 'auth.request_failed'));
+      return;
     }
+
+    // The password has been exchanged for a token; drop it rather than leaving
+    // it in memory for the rest of the wizard.
+    draft.clearPassword();
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isSubmitting = context.watch<AuthProvider>().isLoading;
+
     return Scaffold(
       backgroundColor: _backgroundColor,
       appBar: AppBar(
@@ -153,7 +195,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: _submit,
+                        // Disabled while the request is in flight so a second
+                        // tap cannot register twice. Same widget and size.
+                        onPressed: isSubmitting ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.deepNavy,
                           foregroundColor: Colors.white,

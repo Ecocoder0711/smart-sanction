@@ -1,11 +1,16 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/india_locations.dart';
+import '../../core/network/api_error_messages.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/registration_draft_provider.dart';
 import '../auth/widgets/trust_footer.dart';
 import '../dashboard/dashboard_screen.dart';
+import 'login_screen.dart';
 
 class LocationScreen extends StatefulWidget {
   const LocationScreen({super.key});
@@ -131,17 +136,65 @@ class _LocationScreenState extends State<LocationScreen> {
     }
   }
 
-  void _submit() {
-    // UI/navigation only — not connected to the backend yet.
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submit() async {
+    // Unchanged: GPS coordinates satisfy the step on their own, otherwise the
+    // manual state/district fields must validate.
     final hasGpsLocation = _latitude != null && _longitude != null;
 
     if (!hasGpsLocation && !_formKey.currentState!.validate()) {
       return;
     }
 
+    final auth = context.read<AuthProvider>();
+    final draft = context.read<RegistrationDraftProvider>();
+
+    if (hasGpsLocation) {
+      draft.setCoordinates(latitude: _latitude!, longitude: _longitude!);
+    }
+    // Without GPS there are no coordinates to send, and none are invented:
+    // state/district alone are stored. Partner recommendations stay
+    // unavailable until real coordinates exist, which the backend already
+    // reports rather than guessing.
+    draft.setProfileDetails(state: _selectedState, district: _selectedDistrict);
+
+    try {
+      await auth.updateProfile(draft.toLocationUpdate());
+    } on Exception catch (error) {
+      if (!mounted) return;
+      if (isUnauthorized(error)) {
+        await _returnToLogin();
+        return;
+      }
+      _showError(describeApiError(error, fallbackKey: 'location.save_failed'));
+      return;
+    }
+
+    // The wizard is done and the profile now lives on the server; drop the
+    // in-memory copy.
+    draft.clear();
+
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Sends an expired session back to Login instead of on to the Dashboard.
+  Future<void> _returnToLogin() async {
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    _showError('auth.session_expired'.tr());
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
       (route) => false,
     );
   }
@@ -152,6 +205,7 @@ class _LocationScreenState extends State<LocationScreen> {
         ? const <String>[]
         : IndiaLocations.stateDistricts[_selectedState] ?? const <String>[];
     final hasGpsLocation = _latitude != null && _longitude != null;
+    final isSubmitting = context.watch<AuthProvider>().isLoading;
 
     return Scaffold(
       backgroundColor: _backgroundColor,
@@ -436,7 +490,9 @@ class _LocationScreenState extends State<LocationScreen> {
                                 SizedBox(
                                   height: 48,
                                   child: ElevatedButton(
-                                    onPressed: _submit,
+                                    // Disabled while the request is in flight
+                                    // so a second tap cannot submit twice.
+                                    onPressed: isSubmitting ? null : _submit,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppColors.emeraldGreen,
                                       foregroundColor: Colors.white,

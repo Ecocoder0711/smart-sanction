@@ -1,10 +1,15 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/india_locations.dart';
+import '../../core/network/api_error_messages.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/registration_draft_provider.dart';
 import '../auth/widgets/trust_footer.dart';
 import 'location_screen.dart';
+import 'login_screen.dart';
 
 class _ChipOption {
   const _ChipOption(this.value, this.labelKey);
@@ -79,8 +84,15 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
     );
   }
 
-  void _submit() {
-    // UI/navigation only — not connected to the backend yet.
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submit() async {
+    // Validation below is unchanged: the same three checks, the same inline
+    // category/gender error text.
     final isFormValid = _formKey.currentState!.validate();
     final isCategoryValid = _selectedCategory != null;
     final isGenderValid = _selectedGender != null;
@@ -92,12 +104,59 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
       _genderError = isGenderValid ? null : 'eligibility.gender_error'.tr();
     });
 
-    if (isFormValid && isCategoryValid && isGenderValid) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LocationScreen()),
+    if (!isFormValid || !isCategoryValid || !isGenderValid) return;
+
+    final auth = context.read<AuthProvider>();
+    final draft = context.read<RegistrationDraftProvider>();
+
+    draft.setProfileDetails(
+      annualIncome: double.parse(_annualIncomeController.text.trim()),
+      state: _selectedState,
+      district: _selectedDistrict,
+      category: _selectedCategory,
+      gender: _selectedGender,
+    );
+
+    try {
+      await auth.updateProfile(draft.toProfileUpdate());
+    } on Exception catch (error) {
+      if (!mounted) return;
+      if (isUnauthorized(error)) {
+        await _returnToLogin();
+        return;
+      }
+      _showError(
+        describeApiError(error, fallbackKey: 'eligibility.save_failed'),
       );
+      return;
     }
+
+    // annual_income, category, and gender are what the backend counts towards
+    // profile_complete; eligibility and matching both refuse to run without
+    // them, so stopping here beats failing two screens later.
+    if (!auth.isProfileComplete) {
+      if (!mounted) return;
+      _showError('eligibility.profile_incomplete'.tr());
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LocationScreen()),
+    );
+  }
+
+  /// Sends an expired session back to Login rather than deeper into the wizard.
+  Future<void> _returnToLogin() async {
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    _showError('auth.session_expired'.tr());
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Widget _fieldLabel(String text) {
@@ -140,6 +199,7 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
     final districtOptions = _selectedState == null
         ? const <String>[]
         : IndiaLocations.stateDistricts[_selectedState] ?? const <String>[];
+    final isSubmitting = context.watch<AuthProvider>().isLoading;
 
     return Scaffold(
       backgroundColor: _backgroundColor,
@@ -367,7 +427,9 @@ class _EligibilityScreenState extends State<EligibilityScreen> {
                             SizedBox(
                               height: 48,
                               child: ElevatedButton(
-                                onPressed: _submit,
+                                // Disabled while the request is in flight so a
+                                // second tap cannot submit twice.
+                                onPressed: isSubmitting ? null : _submit,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.emeraldGreen,
                                   foregroundColor: Colors.white,
