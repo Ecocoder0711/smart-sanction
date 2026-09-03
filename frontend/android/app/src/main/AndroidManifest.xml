@@ -46,5 +46,20 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Android 11+ package visibility. Without these, canLaunchUrl and
+             launchUrl cannot see the apps that handle these intents, so
+             Directions silently fails on a real device even though Google
+             Maps is installed. One entry per scheme we actually launch:
+             https for the web fallback, geo: for any map app, and the
+             Google Maps package for turn-by-turn navigation. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="geo"/>
+        </intent>
+        <package android:name="com.google.android.apps.maps"/>
     </queries>
 </manifest>

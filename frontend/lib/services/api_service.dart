@@ -6,6 +6,7 @@ import '../core/network/api_constants.dart';
 import '../core/network/request_formatting.dart';
 import '../models/loan_application.dart';
 import '../models/match_result.dart';
+import '../models/nearby_bank.dart';
 import '../models/scheme.dart';
 import '../models/scheme_calculation.dart';
 
@@ -226,6 +227,50 @@ class ApiService {
     );
 
     return LoanApplication.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Discovers real bank branches around a coordinate, nearest first.
+  ///
+  /// Public endpoint — no token — because it returns OpenStreetMap map data
+  /// rather than anything belonging to the applicant. Callers must pass real
+  /// stored coordinates: there is deliberately no default centre, so a user
+  /// without a location gets no request rather than someone else's city.
+  ///
+  /// Returns the branches plus whether the backend capped the list: in a
+  /// dense metro a 40 km radius can contain over a thousand branches, and the
+  /// screen must not present the nearest 50 as if they were all of them.
+  ///
+  /// Throws [ApiException] with statusCode 503 when discovery is upstream-
+  /// unavailable, which the screen shows as a retryable section error while
+  /// leaving registered partners untouched.
+  Future<({List<NearbyBank> items, bool capped, int discovered})>
+  fetchNearbyBanks({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 40,
+  }) async {
+    final data = await _get(
+      '/nearby-banks?latitude=$latitude&longitude=$longitude'
+      '&radius_km=$radiusKm',
+    );
+
+    if (data is! Map<String, dynamic> || data['items'] is! List) {
+      throw ApiException('Unexpected response shape for /nearby-banks');
+    }
+
+    final items = (data['items'] as List<dynamic>)
+        .map((item) => NearbyBank.fromJson(item as Map<String, dynamic>))
+        .toList();
+
+    return (
+      items: items,
+      capped: data['capped'] == true,
+      // Falls back to the returned count for an older backend that does not
+      // report it, so the screen never claims more than it can show.
+      discovered: data['discovered'] is int
+          ? data['discovered'] as int
+          : items.length,
+    );
   }
 
   Future<List<Scheme>> fetchSchemes({String? token}) async {

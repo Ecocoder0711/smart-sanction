@@ -31,8 +31,8 @@ class LoanApplication {
 
   final double requestedAmount;
 
-  /// Backend lifecycle state: submitted, under_review, approved, rejected or
-  /// completed. There is no draft state, so nothing here may be labelled one.
+  /// Backend lifecycle state: draft, submitted, under_review, approved,
+  /// rejected or completed. Use [isDraft] rather than comparing strings.
   final String status;
 
   final DateTime? applicationDate;
