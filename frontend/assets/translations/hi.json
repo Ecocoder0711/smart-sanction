@@ -77,7 +77,6 @@
     "we_offer_header": "हम प्रदान करते हैं",
     "start_application_cta": "अपनी योजनाएं खोजने के लिए यहां क्लिक करें",
     "more_link": "अधिक...",
-    "list_pending": "सूची यूआई लंबित है",
     "card_schemes_title": "योजनाएं",
     "card_schemes_center": "मिलान खोजें",
     "card_schemes_subtitle": "उपयुक्त ऋण खोजें",
@@ -105,7 +104,8 @@
     "status_under_review": "समीक्षाधीन",
     "status_approved": "स्वीकृत",
     "status_rejected": "अस्वीकृत",
-    "status_completed": "पूर्ण"
+    "status_completed": "पूर्ण",
+    "scheme_max_loan": "{amount} तक"
   },
   "scheme_matching": {
     "intake_step_label": "चरण 1 का 4",

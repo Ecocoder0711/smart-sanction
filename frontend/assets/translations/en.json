@@ -77,7 +77,6 @@
     "we_offer_header": "We offer",
     "start_application_cta": "Click here to find your schemes",
     "more_link": "more...",
-    "list_pending": "List UI Pending",
     "card_schemes_title": "Schemes",
     "card_schemes_center": "Find Matches",
     "card_schemes_subtitle": "Discover suitable loans",
@@ -105,7 +104,8 @@
     "status_under_review": "Under review",
     "status_approved": "Approved",
     "status_rejected": "Rejected",
-    "status_completed": "Completed"
+    "status_completed": "Completed",
+    "scheme_max_loan": "Up to {amount}"
   },
   "scheme_matching": {
     "intake_step_label": "Step 1 of 4",
