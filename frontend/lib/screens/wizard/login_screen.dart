@@ -23,6 +23,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  /// Starts hidden; the eye button in the field reveals it on demand. Typing
+  /// a password blind on a phone keyboard is the usual reason people mistype
+  /// it, so the toggle matters most on a real device.
+  bool _obscurePassword = true;
+
   @override
   void dispose() {
     _phoneController.dispose();
@@ -157,8 +162,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
-                      decoration: _inputDecoration('auth.password_label'.tr()),
+                      obscureText: _obscurePassword,
+                      // suffixIcon sits inside the existing decoration, so the
+                      // field keeps its size, fill and borders unchanged.
+                      decoration: _inputDecoration('auth.password_label'.tr())
+                          .copyWith(
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey.shade600,
+                              ),
+                              tooltip: _obscurePassword
+                                  ? 'auth.show_password'.tr()
+                                  : 'auth.hide_password'.tr(),
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                            ),
+                          ),
                       validator: (value) {
                         if (value == null || value.length < 8) {
                           return 'auth.password_error'.tr();

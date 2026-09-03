@@ -24,7 +24,9 @@
     "phone_already_registered": "This phone number is already registered. Try logging in instead.",
     "invalid_credentials": "Incorrect phone number or password.",
     "session_expired": "Your session expired. Please log in again.",
-    "request_failed": "Could not reach the server. Check your connection and try again."
+    "request_failed": "Could not reach the server. Check your connection and try again.",
+    "show_password": "Show password",
+    "hide_password": "Hide password"
   },
   "eligibility": {
     "step_of_label": "Step 1 of 2",
