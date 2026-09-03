@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/network/api_constants.dart';
 import '../core/network/request_formatting.dart';
+import '../models/loan_application.dart';
 import '../models/match_result.dart';
 import '../models/scheme.dart';
 import '../models/scheme_calculation.dart';
@@ -172,6 +173,31 @@ class ApiService {
     );
 
     return SchemeCalculation.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Lists the token owner's own applications, newest-first as ordered by the
+  /// backend.
+  ///
+  /// Ownership is enforced server-side from the bearer token, so no user id is
+  /// sent and none can be spoofed. A brand-new applicant legitimately gets an
+  /// empty list rather than an error.
+  Future<List<LoanApplication>> fetchOwnApplications({
+    required String token,
+  }) async {
+    final data = await _get('/applications', token: token);
+
+    final List<dynamic> rawItems;
+    if (data is Map<String, dynamic> && data['items'] is List) {
+      rawItems = data['items'] as List<dynamic>;
+    } else if (data is List<dynamic>) {
+      rawItems = data;
+    } else {
+      throw ApiException('Unexpected response shape for /applications');
+    }
+
+    return rawItems
+        .map((item) => LoanApplication.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<Scheme>> fetchSchemes({String? token}) async {

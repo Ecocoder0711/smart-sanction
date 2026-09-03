@@ -1,11 +1,24 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_error_messages.dart';
+import '../../models/loan_application.dart';
 import '../../models/scheme.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import '../calculator/emi_calculator_screen.dart';
 import '../scheme_matching/scheme_intake_screen.dart';
+import '../wizard/login_screen.dart';
 import 'category_list_screen.dart';
+
+/// Rupee amounts, grouped Indian-style with no paise.
+final NumberFormat _rupees = NumberFormat.currency(
+  locale: 'en_IN',
+  symbol: '\u20B9',
+  decimalDigits: 0,
+);
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,52 +31,94 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const Color _backgroundColor = Color(0xFFF9FAFB);
   static const Color _borderColor = Color(0xFFD1D5DB);
 
-  // Mock data only — no backend calls. Names/rates mirror the real seeded
-  // schemes for realism, but this list is static and disconnected.
-  static const List<Scheme> _mockSchemes = [
-    Scheme(
-      id: 1,
-      name: 'Demo Enterprise Boost',
-      category: 'General',
-      maxLoanLimit: 2000000,
-      interestRate: 7.25,
-    ),
-    Scheme(
-      id: 2,
-      name: 'Demo Community Growth Credit',
-      category: 'SC',
-      maxLoanLimit: 1200000,
-      interestRate: 6.25,
-    ),
-    Scheme(
-      id: 3,
-      name: 'Demo Women Entrepreneur Starter',
-      category: 'Women',
-      maxLoanLimit: 600000,
-      interestRate: 4.25,
-    ),
-    Scheme(
-      id: 4,
-      name: 'Demo Artisan Opportunity Fund',
-      category: 'OBC',
-      maxLoanLimit: 500000,
-      interestRate: 5.25,
-    ),
-    Scheme(
-      id: 5,
-      name: 'Demo Tribal Livelihood Microcredit',
-      category: 'ST',
-      maxLoanLimit: 200000,
-      interestRate: 3.75,
-    ),
-    Scheme(
-      id: 6,
-      name: 'Demo Minority Livelihood Support',
-      category: 'Minority',
-      maxLoanLimit: 400000,
-      interestRate: 4.75,
-    ),
-  ];
+  /// Public catalogue for browsing. Not personalised: the Dashboard has no
+  /// requested amount, so it cannot honestly rank or filter by eligibility --
+  /// that happens in Scheme Intake, where an amount is actually collected.
+  List<Scheme> _schemes = const [];
+  bool _schemesLoading = true;
+  bool _schemesFailed = false;
+
+  /// The applicant's own applications. Loaded independently of the schemes so
+  /// one failing section does not blank the other.
+  List<LoanApplication> _applications = const [];
+  bool _applicationsLoading = true;
+  bool _applicationsFailed = false;
+
+  final _apiService = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSchemes();
+    _loadApplications();
+  }
+
+  Future<void> _loadSchemes() async {
+    setState(() {
+      _schemesLoading = true;
+      _schemesFailed = false;
+    });
+    try {
+      final schemes = await _apiService.fetchSchemes();
+      if (!mounted) return;
+      setState(() {
+        _schemes = schemes;
+        _schemesLoading = false;
+      });
+    } on Exception {
+      if (!mounted) return;
+      setState(() {
+        _schemesLoading = false;
+        _schemesFailed = true;
+      });
+    }
+  }
+
+  Future<void> _loadApplications() async {
+    final token = context.read<AuthProvider>().token;
+    if (token == null) {
+      // Not signed in: an empty list is the honest state, not an error.
+      setState(() {
+        _applications = const [];
+        _applicationsLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _applicationsLoading = true;
+      _applicationsFailed = false;
+    });
+    try {
+      final applications = await _apiService.fetchOwnApplications(token: token);
+      if (!mounted) return;
+      setState(() {
+        _applications = applications;
+        _applicationsLoading = false;
+      });
+    } on Exception catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _applicationsLoading = false;
+        _applicationsFailed = true;
+      });
+      if (isUnauthorized(error)) await _returnToLogin();
+    }
+  }
+
+  /// Sends an expired session back to Login, matching the rest of the app.
+  Future<void> _returnToLogin() async {
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('auth.session_expired'.tr())),
+    );
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
+  }
 
   void _toggleLanguage() {
     final isEnglish = context.locale.languageCode == 'en';
@@ -92,10 +147,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final recommended = _mockSchemes;
-    final recentlyViewed = _mockSchemes.sublist(0, 3);
-    final savedDrafted = _mockSchemes.sublist(4);
-
     return Scaffold(
       backgroundColor: _backgroundColor,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -119,23 +170,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 12),
               _buildFeatureCardsRow(context),
               const SizedBox(height: 28),
+              // "Recommended" would claim a personalisation the Dashboard
+              // cannot perform without a requested amount, so this is a plain
+              // catalogue. "Recently Viewed" is gone: no view history exists
+              // server-side and none is invented here.
               _buildSchemeSection(
                 context,
-                title: 'dashboard.section_recommended'.tr(),
-                schemes: recommended,
+                title: 'dashboard.section_explore'.tr(),
+                schemes: _schemes,
+                isLoading: _schemesLoading,
+                hasFailed: _schemesFailed,
+                emptyKey: 'dashboard.schemes_empty',
+                failedKey: 'dashboard.schemes_failed',
+                onRetry: _loadSchemes,
               ),
               const SizedBox(height: 24),
-              _buildSchemeSection(
-                context,
-                title: 'dashboard.section_recently_viewed'.tr(),
-                schemes: recentlyViewed,
-              ),
-              const SizedBox(height: 24),
-              _buildSchemeSection(
-                context,
-                title: 'dashboard.section_saved_drafted'.tr(),
-                schemes: savedDrafted,
-              ),
+              _buildApplicationsSection(context),
             ],
           ),
         ),
@@ -174,13 +224,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: Colors.grey.shade600,
                       ),
                     ),
-                    const Text(
-                      'Venika Panwar',
-                      style: TextStyle(
+                    // Real name from the signed-in profile. Falls back to a
+                    // neutral word when the user has not loaded yet -- never
+                    // to a person's name.
+                    Text(
+                      context.watch<AuthProvider>().user?['full_name']
+                              as String? ??
+                          'dashboard.greeting_fallback'.tr(),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppColors.deepNavy,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -272,6 +329,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     BuildContext context, {
     required String title,
     required List<Scheme> schemes,
+    required bool isLoading,
+    required bool hasFailed,
+    required String emptyKey,
+    required String failedKey,
+    required VoidCallback onRetry,
   }) {
     // Two cards fit exactly on screen: 16px padding on each side + 16px
     // gap between the pair = 48px consumed, remainder split evenly.
@@ -289,18 +351,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
+        // Every state occupies the same 130px strip, so the page never
+        // reflows between loading, loaded, empty and failed.
         SizedBox(
           height: 130,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: schemes.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 16),
-            itemBuilder: (context, index) => _SchemeCard(
-              scheme: schemes[index],
-              borderColor: _borderColor,
-              width: cardWidth,
-            ),
-          ),
+          child: isLoading
+              ? const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : hasFailed
+              ? _SectionNotice(
+                  message: failedKey.tr(),
+                  onRetry: onRetry,
+                )
+              : schemes.isEmpty
+              ? _SectionNotice(message: emptyKey.tr(), onRetry: null)
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: schemes.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 16),
+                  itemBuilder: (context, index) => _SchemeCard(
+                    scheme: schemes[index],
+                    borderColor: _borderColor,
+                    width: cardWidth,
+                  ),
+                ),
         ),
         const SizedBox(height: 8),
         Align(
@@ -325,6 +405,229 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// "My Applications" replaces the former "Saved/Drafted" section.
+  ///
+  /// The backend has no saved or draft concept -- ApplicationStatus starts at
+  /// "submitted" -- so nothing here is labelled a draft. Applications are
+  /// created from the application flow, never from this screen.
+  Widget _buildApplicationsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'dashboard.section_my_applications'.tr(),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.deepNavy,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_applicationsLoading)
+          const SizedBox(
+            height: 96,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (_applicationsFailed)
+          SizedBox(
+            height: 96,
+            child: _SectionNotice(
+              message: 'dashboard.applications_failed'.tr(),
+              onRetry: _loadApplications,
+            ),
+          )
+        else if (_applications.isEmpty)
+          _EmptyApplications(borderColor: _borderColor)
+        else
+          for (final application in _applications) ...[
+            _ApplicationCard(
+              application: application,
+              borderColor: _borderColor,
+            ),
+            const SizedBox(height: 12),
+          ],
+      ],
+    );
+  }
+}
+
+/// Fills a section's slot when it is empty or failed, with an optional retry.
+class _SectionNotice extends StatelessWidget {
+  const _SectionNotice({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+          if (onRetry != null)
+            TextButton(
+              onPressed: onRetry,
+              child: Text(
+                'dashboard.retry_button'.tr(),
+                style: const TextStyle(
+                  color: AppColors.deepNavy,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown to an applicant who has not applied for anything yet -- the normal
+/// state for a new account, not an error.
+class _EmptyApplications extends StatelessWidget {
+  const _EmptyApplications({required this.borderColor});
+
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_outlined, size: 32, color: Colors.grey.shade500),
+          const SizedBox(height: 8),
+          Text(
+            'dashboard.applications_empty'.tr(),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.deepNavy,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'dashboard.applications_empty_hint'.tr(),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One real application, using the same card shell as the scheme cards.
+class _ApplicationCard extends StatelessWidget {
+  const _ApplicationCard({
+    required this.application,
+    required this.borderColor,
+  });
+
+  final LoanApplication application;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  application.schemeName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.deepNavy,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _StatusPill(status: application.status,
+                  label: application.statusKey.tr()),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            application.partnerName,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'dashboard.application_amount'.tr(
+              namedArgs: {'amount': _rupees.format(application.requestedAmount)},
+            ),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.emeraldGreen,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Colours the backend lifecycle state. Unknown states fall back to neutral
+/// grey rather than asserting a meaning the app does not know.
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.status, required this.label});
+
+  final String status;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      'approved' || 'completed' => AppColors.emeraldGreen,
+      'rejected' => AppColors.errorRed,
+      'submitted' || 'under_review' => AppColors.deepNavy,
+      _ => Colors.grey,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
     );
   }
 }
