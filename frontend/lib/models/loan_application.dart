@@ -12,8 +12,8 @@ class LoanApplication {
     required this.id,
     required this.schemeId,
     required this.schemeName,
-    required this.partnerId,
-    required this.partnerName,
+    this.partnerId,
+    this.partnerName,
     required this.requestedAmount,
     required this.status,
     this.applicationDate,
@@ -22,8 +22,13 @@ class LoanApplication {
   final int id;
   final int schemeId;
   final String schemeName;
-  final int partnerId;
-  final String partnerName;
+
+  /// Null on a draft saved before the applicant chose where to apply. Every
+  /// non-draft application has one -- the backend enforces that in the
+  /// database.
+  final int? partnerId;
+  final String? partnerName;
+
   final double requestedAmount;
 
   /// Backend lifecycle state: submitted, under_review, approved, rejected or
@@ -39,13 +44,19 @@ class LoanApplication {
       id: json['id'] as int,
       schemeId: json['scheme_id'] as int,
       schemeName: json['scheme_name'] as String,
-      partnerId: json['partner_id'] as int,
-      partnerName: json['partner_name'] as String,
+      partnerId: json['partner_id'] as int?,
+      partnerName: json['partner_name'] as String?,
       requestedAmount: double.parse(json['requested_amount'].toString()),
       status: json['status'] as String,
       applicationDate: date == null ? null : DateTime.tryParse(date.toString()),
     );
   }
+
+  /// Whether this is unsent work rather than a lodged application.
+  ///
+  /// The Dashboard partitions on exactly this, so a draft can never appear
+  /// under My Applications.
+  bool get isDraft => status == 'draft';
 
   /// Translation key for [status], e.g. `dashboard.status_under_review`.
   ///

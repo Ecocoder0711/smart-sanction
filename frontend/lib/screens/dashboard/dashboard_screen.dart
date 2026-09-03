@@ -38,9 +38,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _schemesLoading = true;
   bool _schemesFailed = false;
 
-  /// The applicant's own applications. Loaded independently of the schemes so
-  /// one failing section does not blank the other.
+  /// The applicant's own applications, drafts included. Loaded independently
+  /// of the schemes so one failing section does not blank the other.
+  ///
+  /// Fetched once and partitioned below rather than requested twice: two
+  /// filtered calls could disagree if one landed either side of a save, which
+  /// is how the same row ends up in both sections.
   List<LoanApplication> _applications = const [];
+
+  /// Unsent work.
+  List<LoanApplication> get _drafts =>
+      _applications.where((a) => a.isDraft).toList();
+
+  /// Everything actually lodged: submitted, under review, approved, rejected
+  /// or completed. A draft can never appear here.
+  List<LoanApplication> get _lodgedApplications =>
+      _applications.where((a) => !a.isDraft).toList();
   bool _applicationsLoading = true;
   bool _applicationsFailed = false;
 
@@ -184,6 +197,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 failedKey: 'dashboard.schemes_failed',
                 onRetry: _loadSchemes,
               ),
+              const SizedBox(height: 24),
+              _buildDraftsSection(context),
               const SizedBox(height: 24),
               _buildApplicationsSection(context),
             ],
@@ -408,6 +423,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Applications the applicant saved but has not sent.
+  ///
+  /// Backed by real rows with status "draft"; nothing here is fabricated, and
+  /// a draft never appears under My Applications because both sections read
+  /// from one partitioned fetch.
+  Widget _buildDraftsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'dashboard.section_drafts'.tr(),
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.deepNavy,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_applicationsLoading)
+          const SizedBox(
+            height: 96,
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        else if (_applicationsFailed)
+          SizedBox(
+            height: 96,
+            child: _SectionNotice(
+              message: 'dashboard.applications_failed'.tr(),
+              onRetry: _loadApplications,
+            ),
+          )
+        else if (_drafts.isEmpty)
+          _EmptyApplications(
+            borderColor: _borderColor,
+            title: 'dashboard.drafts_empty'.tr(),
+            hint: 'dashboard.drafts_empty_hint'.tr(),
+          )
+        else
+          for (final draft in _drafts) ...[
+            _ApplicationCard(application: draft, borderColor: _borderColor),
+            const SizedBox(height: 12),
+          ],
+      ],
+    );
+  }
+
   /// "My Applications" replaces the former "Saved/Drafted" section.
   ///
   /// The backend has no saved or draft concept -- ApplicationStatus starts at
@@ -445,10 +512,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onRetry: _loadApplications,
             ),
           )
-        else if (_applications.isEmpty)
-          _EmptyApplications(borderColor: _borderColor)
+        else if (_lodgedApplications.isEmpty)
+          _EmptyApplications(
+            borderColor: _borderColor,
+            title: 'dashboard.applications_empty'.tr(),
+            hint: 'dashboard.applications_empty_hint'.tr(),
+          )
         else
-          for (final application in _applications) ...[
+          for (final application in _lodgedApplications) ...[
             _ApplicationCard(
               application: application,
               borderColor: _borderColor,
@@ -498,9 +569,15 @@ class _SectionNotice extends StatelessWidget {
 /// Shown to an applicant who has not applied for anything yet -- the normal
 /// state for a new account, not an error.
 class _EmptyApplications extends StatelessWidget {
-  const _EmptyApplications({required this.borderColor});
+  const _EmptyApplications({
+    required this.borderColor,
+    required this.title,
+    required this.hint,
+  });
 
   final Color borderColor;
+  final String title;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +593,7 @@ class _EmptyApplications extends StatelessWidget {
           Icon(Icons.inbox_outlined, size: 32, color: Colors.grey.shade500),
           const SizedBox(height: 8),
           Text(
-            'dashboard.applications_empty'.tr(),
+            title,
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w700,
@@ -525,7 +602,7 @@ class _EmptyApplications extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'dashboard.applications_empty_hint'.tr(),
+            hint,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
@@ -577,8 +654,16 @@ class _ApplicationCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            application.partnerName,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            // A draft may have no centre yet; say so rather than showing a
+            // blank line.
+            application.partnerName ?? 'dashboard.draft_no_partner'.tr(),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade700,
+              fontStyle: application.partnerName == null
+                  ? FontStyle.italic
+                  : FontStyle.normal,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -610,6 +695,7 @@ class _StatusPill extends StatelessWidget {
     final color = switch (status) {
       'approved' || 'completed' => AppColors.emeraldGreen,
       'rejected' => AppColors.errorRed,
+      'draft' => Colors.grey.shade700,
       'submitted' || 'under_review' => AppColors.deepNavy,
       _ => Colors.grey,
     };

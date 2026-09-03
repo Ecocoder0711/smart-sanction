@@ -25,7 +25,10 @@ def _to_response(application: Application) -> ApplicationResponse:
         scheme_id=application.scheme_id,
         scheme_name=application.scheme.scheme_name,
         partner_id=application.partner_id,
-        partner_name=application.partner.bank_name,
+        # A draft may have no partner yet, so the relationship can be None.
+        partner_name=(
+            application.partner.bank_name if application.partner is not None else None
+        ),
         requested_amount=application.requested_amount,
         ml_match_score=application.ml_match_score,
         ml_approval_probability=application.ml_approval_probability,
@@ -95,10 +98,19 @@ def create_application(
     owner: User,
     payload: ApplicationCreate,
 ) -> ApplicationResponse:
-    """Create a submitted application owned exclusively by the token user."""
+    """Create an application owned exclusively by the token user.
+
+    The status comes from the payload, which the schema restricts to draft or
+    submitted; every later state is reached through the workflow service, so a
+    client can never create an already-approved application.
+    """
     if session.get(Scheme, payload.scheme_id) is None:
         raise SchemeNotFoundError
-    if session.get(ChannelPartner, payload.partner_id) is None:
+    # A draft may legitimately have no partner yet; one that is named must
+    # still exist.
+    if payload.partner_id is not None and (
+        session.get(ChannelPartner, payload.partner_id) is None
+    ):
         raise PartnerNotFoundError
 
     application = Application(
@@ -106,7 +118,7 @@ def create_application(
         scheme_id=payload.scheme_id,
         partner_id=payload.partner_id,
         requested_amount=payload.requested_amount,
-        status=ApplicationStatus.SUBMITTED.value,
+        status=payload.status.value,
         ml_match_score=None,
         ml_approval_probability=None,
     )

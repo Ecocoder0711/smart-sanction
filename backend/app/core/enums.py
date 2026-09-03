@@ -40,8 +40,14 @@ class GenderEligibility(str, Enum):
 
 
 class ApplicationStatus(str, Enum):
-    """Supported lifecycle states for a loan application."""
+    """Supported lifecycle states for a loan application.
 
+    Declared in lifecycle order. DRAFT precedes SUBMITTED: a draft is the
+    applicant's own unsent work, is the only state that may lack a partner,
+    and is the only state besides SUBMITTED a client may create directly.
+    """
+
+    DRAFT = "draft"
     SUBMITTED = "submitted"
     UNDER_REVIEW = "under_review"
     APPROVED = "approved"

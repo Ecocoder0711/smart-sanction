@@ -107,7 +107,12 @@
     "status_approved": "Approved",
     "status_rejected": "Rejected",
     "status_completed": "Completed",
-    "scheme_max_loan": "Up to {amount}"
+    "scheme_max_loan": "Up to {amount}",
+    "section_drafts": "Drafts",
+    "drafts_empty": "No saved drafts",
+    "drafts_empty_hint": "Schemes you save before applying will appear here.",
+    "draft_no_partner": "No centre selected yet",
+    "status_draft": "Draft"
   },
   "scheme_matching": {
     "intake_step_label": "Step 1 of 4",
@@ -198,6 +203,8 @@
     "empty_title": "No partners to show",
     "empty_no_scheme": "Open this from a matched scheme to see the branches nearest to you.",
     "empty_back_button": "Go back",
-    "selected_badge": "Selected"
+    "selected_badge": "Selected",
+    "save_draft_failed": "Could not save the draft. Please try again.",
+    "lock_notice_v2": "Selecting a centre is saved with your draft. Nothing is submitted until you choose to apply."
   }
 }

@@ -107,7 +107,12 @@
     "status_approved": "स्वीकृत",
     "status_rejected": "अस्वीकृत",
     "status_completed": "पूर्ण",
-    "scheme_max_loan": "{amount} तक"
+    "scheme_max_loan": "{amount} तक",
+    "section_drafts": "ड्राफ़्ट",
+    "drafts_empty": "कोई सहेजा गया ड्राफ़्ट नहीं",
+    "drafts_empty_hint": "आवेदन से पहले सहेजी गई योजनाएँ यहाँ दिखेंगी।",
+    "draft_no_partner": "अभी कोई केंद्र नहीं चुना गया",
+    "status_draft": "ड्राफ़्ट"
   },
   "scheme_matching": {
     "intake_step_label": "चरण 1 का 4",
@@ -198,6 +203,8 @@
     "empty_title": "दिखाने के लिए कोई पार्टनर नहीं",
     "empty_no_scheme": "अपने निकटतम शाखाएँ देखने के लिए इसे किसी मिलती-जुलती योजना से खोलें।",
     "empty_back_button": "वापस जाएँ",
-    "selected_badge": "चयनित"
+    "selected_badge": "चयनित",
+    "save_draft_failed": "ड्राफ़्ट सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।",
+    "lock_notice_v2": "चुना गया केंद्र आपके ड्राफ़्ट के साथ सहेजा जाता है। जब तक आप आवेदन नहीं करते, कुछ भी जमा नहीं होता।"
   }
 }
