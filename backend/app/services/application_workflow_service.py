@@ -9,6 +9,9 @@ from app.models import Application
 
 ALLOWED_TRANSITIONS = MappingProxyType(
     {
+        # A draft is the applicant's own unsent work: the only way out is to
+        # submit it. No public route exposes this yet.
+        ApplicationStatus.DRAFT: frozenset({ApplicationStatus.SUBMITTED}),
         ApplicationStatus.SUBMITTED: frozenset({ApplicationStatus.UNDER_REVIEW}),
         ApplicationStatus.UNDER_REVIEW: frozenset(
             {ApplicationStatus.APPROVED, ApplicationStatus.REJECTED}

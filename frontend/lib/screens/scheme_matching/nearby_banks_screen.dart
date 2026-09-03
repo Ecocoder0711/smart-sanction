@@ -1,11 +1,16 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_error_messages.dart';
 import '../../models/match_candidate.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import '../auth/widgets/trust_footer.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../wizard/login_screen.dart';
 
 const Color _borderColor = Color(0xFFD1D5DB);
 
@@ -26,9 +31,13 @@ class NearbyBanksScreen extends StatefulWidget {
   /// Optional so the Dashboard's generic calculator route still compiles;
   /// without a candidate there are no partners to show and the screen says so
   /// rather than falling back to sample data.
-  const NearbyBanksScreen({super.key, this.candidate});
+  const NearbyBanksScreen({super.key, this.candidate, this.apiService});
 
   final MatchCandidate? candidate;
+
+  /// Injection seam for tests, matching how ApiService and AuthService take an
+  /// optional client. Production callers omit it and get the default.
+  final ApiService? apiService;
 
   @override
   State<NearbyBanksScreen> createState() => _NearbyBanksScreenState();
@@ -44,9 +53,12 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
   List<RecommendedPartner> get _partners =>
       widget.candidate?.partners ?? const [];
 
-  /// Selection is local to this screen: no applicant-facing endpoint exists
-  /// for persisting a chosen partner, so nothing here claims it was saved.
+  /// Selection is local until the draft is saved. Choosing a centre never
+  /// submits anything on its own.
   int? _selectedPartnerId;
+
+  late final ApiService _apiService = widget.apiService ?? ApiService();
+  bool _isSavingDraft = false;
 
   /// Opens Google Maps at the branch's real coordinates.
   ///
@@ -80,13 +92,70 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
     );
   }
 
-  void _saveDraft() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('nearby_banks.save_draft_snackbar'.tr())),
-    );
+  /// Persists the applicant's work as a real draft, then leaves.
+  ///
+  /// A draft is not a submission: the status is pinned to "draft", and the
+  /// chosen centre is included only if one was actually selected, since the
+  /// backend allows a draft to have none.
+  Future<void> _saveDraft() async {
+    final candidate = widget.candidate;
+    if (candidate == null) {
+      // Generic entry: there is no scheme to save against.
+      _showMessage('nearby_banks.empty_no_scheme'.tr());
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    final token = auth.token;
+    if (token == null) {
+      await _returnToLogin();
+      return;
+    }
+
+    setState(() => _isSavingDraft = true);
+    try {
+      await _apiService.saveApplicationDraft(
+        schemeId: candidate.scheme.id,
+        requestedAmount: candidate.requestedAmount,
+        partnerId: _selectedPartnerId,
+        token: token,
+      );
+      if (!mounted) return;
+      _showMessage('nearby_banks.save_draft_snackbar'.tr());
+      // Only now, once the row exists.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        (route) => false,
+      );
+    } on Exception catch (error) {
+      if (!mounted) return;
+      if (isUnauthorized(error)) {
+        await _returnToLogin();
+        return;
+      }
+      // Stay put so the applicant can retry without losing their selection.
+      _showMessage(
+        describeApiError(error, fallbackKey: 'nearby_banks.save_draft_failed'),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingDraft = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _returnToLogin() async {
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    _showMessage('auth.session_expired'.tr());
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
       (route) => false,
     );
   }
@@ -251,7 +320,7 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'nearby_banks.lock_notice'.tr(),
+                                      'nearby_banks.lock_notice_v2'.tr(),
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey.shade700,
@@ -264,7 +333,8 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
-                                  onPressed: _saveDraft,
+                                  // Blocks a duplicate draft from a second tap.
+                                  onPressed: _isSavingDraft ? null : _saveDraft,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blueGrey.shade600,
                                     foregroundColor: Colors.white,

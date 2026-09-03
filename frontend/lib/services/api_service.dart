@@ -54,6 +54,8 @@ class ApiService {
     String endpoint, {
     required Map<String, dynamic> body,
     String? token,
+    // Most endpoints answer 200; creation answers 201.
+    int expectedStatus = 200,
   }) async {
     final uri = Uri.parse('${ApiConstants.baseUrl}$endpoint');
 
@@ -67,7 +69,7 @@ class ApiService {
         body: jsonEncode(body),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == expectedStatus) {
         return jsonDecode(response.body);
       }
 
@@ -198,6 +200,32 @@ class ApiService {
     return rawItems
         .map((item) => LoanApplication.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Saves an application the applicant has not sent yet.
+  ///
+  /// [partnerId] is omitted when no centre has been chosen: a draft may
+  /// legitimately have none, and the backend only requires one on submission.
+  /// The status is pinned to `draft` here — this method never submits.
+  Future<LoanApplication> saveApplicationDraft({
+    required int schemeId,
+    required double requestedAmount,
+    required String token,
+    int? partnerId,
+  }) async {
+    final data = await _post(
+      '/applications',
+      body: {
+        'scheme_id': schemeId,
+        'requested_amount': roundToPaise(requestedAmount),
+        'status': 'draft',
+        'partner_id': ?partnerId,
+      },
+      token: token,
+      expectedStatus: 201,
+    );
+
+    return LoanApplication.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<Scheme>> fetchSchemes({String? token}) async {

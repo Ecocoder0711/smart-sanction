@@ -33,8 +33,16 @@ class Application(Base):
             name="ck_applications_ml_approval_probability_range",
         ),
         CheckConstraint(
-            "status IN ('submitted', 'under_review', 'approved', 'rejected', 'completed')",
+            "status IN ('draft', 'submitted', 'under_review', 'approved', "
+            "'rejected', 'completed')",
             name="ck_applications_status_values",
+        ),
+        # A draft may still be deciding where to apply, but anything that has
+        # left the applicant's hands must name a partner. Enforced in the
+        # database so no code path can bypass it.
+        CheckConstraint(
+            "status = 'draft' OR partner_id IS NOT NULL",
+            name="ck_applications_submitted_requires_partner",
         ),
         Index("ix_applications_user_id", "user_id"),
         Index("ix_applications_scheme_id", "scheme_id"),
@@ -51,9 +59,11 @@ class Application(Base):
         ForeignKey("schemes.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    partner_id: Mapped[int] = mapped_column(
+    # Nullable only so a draft can be saved before a partner is chosen; every
+    # non-draft row is held to NOT NULL by the check constraint above.
+    partner_id: Mapped[int | None] = mapped_column(
         ForeignKey("channel_partners.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
     requested_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     ml_match_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 5), nullable=True)
