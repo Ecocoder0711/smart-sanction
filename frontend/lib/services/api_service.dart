@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../core/network/api_constants.dart';
+import '../core/network/request_formatting.dart';
 import '../models/match_result.dart';
 import '../models/scheme.dart';
+import '../models/scheme_calculation.dart';
 
 class ApiException implements Exception {
   ApiException(this.message, {this.statusCode});
@@ -144,6 +146,32 @@ class ApiService {
     );
 
     return MatchResult.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Calculates repayment for one scheme using its stored interest rate.
+  ///
+  /// Public endpoint — no token — and the rate comes from the server, so a
+  /// stale client-side rate cannot skew the result. Amounts are rounded to
+  /// paise first because the contract is `Decimal(decimal_places=2)`.
+  ///
+  /// Throws [ApiException] with statusCode 404 for an unknown scheme and 400
+  /// for an inactive one. Note the endpoint deliberately does not reject an
+  /// amount above the scheme's limit: it is a projection, not an eligibility
+  /// check.
+  Future<SchemeCalculation> calculateSchemeLoan({
+    required int schemeId,
+    required double requestedAmount,
+    required int tenureMonths,
+  }) async {
+    final data = await _post(
+      '/schemes/$schemeId/calculate',
+      body: {
+        'requested_amount': roundToPaise(requestedAmount),
+        'tenure_months': tenureMonths,
+      },
+    );
+
+    return SchemeCalculation.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<Scheme>> fetchSchemes({String? token}) async {

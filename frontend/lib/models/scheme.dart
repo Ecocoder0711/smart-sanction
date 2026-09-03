@@ -5,6 +5,7 @@ class Scheme {
     required this.category,
     required this.maxLoanLimit,
     required this.interestRate,
+    this.moratoriumMonths,
   });
 
   final int id;
@@ -12,6 +13,14 @@ class Scheme {
   final String category;
   final double maxLoanLimit;
   final double interestRate;
+
+  /// Repayment holiday the scheme grants, in months, straight from
+  /// `SchemeResponse.moratorium_months`. Real seeded schemes range from 2 to
+  /// 12, so it must never be displayed as a fixed number.
+  ///
+  /// Nullable only because trimmed scheme payloads (the Dashboard's static
+  /// list) omit it; when the backend supplies it, it is used as-is.
+  final int? moratoriumMonths;
 
   factory Scheme.fromJson(Map<String, dynamic> json) {
     final categoryField = json['category'];
@@ -25,6 +34,7 @@ class Scheme {
       category: categoryName,
       maxLoanLimit: double.parse(json['max_loan_limit'].toString()),
       interestRate: double.parse(json['interest_rate'].toString()),
+      moratoriumMonths: json['moratorium_months'] as int?,
     );
   }
 }

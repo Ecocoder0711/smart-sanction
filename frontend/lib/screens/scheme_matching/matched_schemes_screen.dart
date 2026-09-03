@@ -223,12 +223,11 @@ class _MatchCard extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => EmiCalculatorScreen(
-                                initialPrincipal:
-                                    candidate.scheme.maxLoanLimit,
-                                interestRate: candidate.scheme.interestRate,
-                                schemeName: candidate.scheme.name,
-                              ),
+                              // The whole candidate: the calculator needs
+                              // the scheme id for server-side calculation,
+                              // and Nearby Banks will need its partners.
+                              builder: (context) =>
+                                  EmiCalculatorScreen(candidate: candidate),
                             ),
                           );
                         },
