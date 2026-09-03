@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/network/api_error_messages.dart';
 import '../../providers/auth_provider.dart';
+import '../dashboard/dashboard_screen.dart';
 import 'eligibility_screen.dart';
+import 'location_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -90,9 +92,45 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (!mounted) return;
+    _routeAfterLogin(auth);
+  }
+
+  /// Sends a returning applicant to the first step they have not finished.
+  ///
+  /// Registration always starts at the profile step because a new account has
+  /// nothing stored, but signing in later should not walk someone back through
+  /// details they already gave. The login response carries the whole
+  /// UserResponse -- profile_complete, latitude and longitude included -- so
+  /// this decision needs no second request.
+  void _routeAfterLogin(AuthProvider auth) {
+    if (!auth.isProfileComplete) {
+      _replaceWith(const EligibilityScreen());
+      return;
+    }
+
+    final user = auth.user;
+    // Both coordinates are required: one alone cannot locate anyone, and the
+    // backend treats a half-set location as no location at all.
+    final hasLocation =
+        user?['latitude'] != null && user?['longitude'] != null;
+    if (!hasLocation) {
+      _replaceWith(const LocationScreen());
+      return;
+    }
+
+    // Fully set up: drop the whole wizard stack so Back cannot return to
+    // Login, matching how LocationScreen enters the Dashboard.
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      (route) => false,
+    );
+  }
+
+  void _replaceWith(Widget screen) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const EligibilityScreen()),
+      MaterialPageRoute(builder: (context) => screen),
     );
   }
 
