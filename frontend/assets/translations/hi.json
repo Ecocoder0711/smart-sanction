@@ -134,7 +134,13 @@
     "emi_prefix": "अनुमानित ईएमआई",
     "calculate_loan_button": "ऋण की गणना करें",
     "match_score_label": "मिलान स्कोर",
-    "previous_step_button": "पिछला चरण"
+    "previous_step_button": "पिछला चरण",
+    "match_failed": "मिलती-जुलती योजनाएँ लोड नहीं हो सकीं। कृपया पुनः प्रयास करें।",
+    "empty_title": "कोई मिलती-जुलती योजना नहीं मिली",
+    "empty_subtitle": "आपके द्वारा दर्ज राशि और आपकी प्रोफ़ाइल से कोई योजना मेल नहीं खाई। कृपया कोई अन्य राशि आज़माएँ।",
+    "empty_edit_button": "मेरी जानकारी बदलें",
+    "score_unavailable": "उपलब्ध नहीं",
+    "score_unavailable_label": "स्कोर उपलब्ध नहीं"
   },
   "calculator": {
     "step_label": "चरण 3 का 4",

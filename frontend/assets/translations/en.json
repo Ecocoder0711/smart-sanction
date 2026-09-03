@@ -134,7 +134,13 @@
     "emi_prefix": "Estimated EMI",
     "calculate_loan_button": "Calculate Loan",
     "match_score_label": "MATCH SCORE",
-    "previous_step_button": "Previous Step"
+    "previous_step_button": "Previous Step",
+    "match_failed": "Could not load matching schemes. Please try again.",
+    "empty_title": "No matching schemes found",
+    "empty_subtitle": "No scheme matched the amount you entered and the profile on file. Try a different amount.",
+    "empty_edit_button": "Edit my details",
+    "score_unavailable": "N/A",
+    "score_unavailable_label": "SCORE UNAVAILABLE"
   },
   "calculator": {
     "step_label": "Step 3 of 4",

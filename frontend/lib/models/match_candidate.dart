@@ -55,6 +55,7 @@ class RecommendedPartner {
     required this.latitude,
     required this.longitude,
     required this.distanceKm,
+    this.healthScore,
   });
 
   final int id;
@@ -64,7 +65,16 @@ class RecommendedPartner {
   final double longitude;
   final double distanceKm;
 
+  /// Deterministic Partner Health Score in `[0, 1]` over the branch's NPA,
+  /// remaining quota, and distance. Not an ML output, and unrelated to
+  /// `ml_status`: `/api/match` returns it whether or not ML is enabled.
+  ///
+  /// Nullable only so an older backend without routed partners still parses.
+  final double? healthScore;
+
   factory RecommendedPartner.fromJson(Map<String, dynamic> json) {
+    final healthScore = json['health_score'];
+
     return RecommendedPartner(
       id: json['id'] as int,
       bankName: json['bank_name'] as String,
@@ -72,6 +82,46 @@ class RecommendedPartner {
       latitude: double.parse(json['latitude'].toString()),
       longitude: double.parse(json['longitude'].toString()),
       distanceKm: double.parse(json['distance_km'].toString()),
+      healthScore: healthScore == null
+          ? null
+          : double.parse(healthScore.toString()),
+    );
+  }
+}
+
+/// The optional ML section of one candidate.
+///
+/// Present only when the backend reports `ml_status: "available"`; every field
+/// stays nullable because the contract declares them individually optional.
+class MlResult {
+  const MlResult({this.matchScore, this.approvalProbability, this.rank});
+
+  /// Applicant-to-scheme financial fit, `[0, 1]`. This is **scheme-level**:
+  /// it differs per candidate and is what the backend orders results by, so
+  /// it is the value a per-scheme card should show.
+  final double? matchScore;
+
+  /// Predicted approval likelihood, `[0, 1]`. This is **application-level**:
+  /// every Random Forest feature is applicant-level, so within one response
+  /// it is identical for every candidate. It must not be rendered as a
+  /// per-scheme score.
+  final double? approvalProbability;
+
+  /// 1-based position derived from [matchScore].
+  final int? rank;
+
+  factory MlResult.fromJson(Map<String, dynamic> json) {
+    final matchScore = json['match_score'];
+    final approvalProbability = json['approval_probability'];
+
+    return MlResult(
+      matchScore: matchScore == null
+          ? null
+          : double.parse(matchScore.toString()),
+      approvalProbability: approvalProbability == null
+          ? null
+          : double.parse(approvalProbability.toString()),
+      rank: json['rank'] as int?,
     );
   }
 }
@@ -84,6 +134,7 @@ class MatchCandidate {
     required this.financial,
     required this.partners,
     required this.partnerMessage,
+    this.ml,
   });
 
   final Scheme scheme;
@@ -93,7 +144,14 @@ class MatchCandidate {
   final List<RecommendedPartner> partners;
   final String partnerMessage;
 
+  /// Null whenever the response reports `ml_status: "unavailable"` — the
+  /// backend leaves it out rather than inventing a score, so callers must
+  /// treat an absent section as "no score", never as zero.
+  final MlResult? ml;
+
   factory MatchCandidate.fromJson(Map<String, dynamic> json) {
+    final ml = json['ml'];
+
     return MatchCandidate(
       scheme: Scheme.fromJson(json['scheme'] as Map<String, dynamic>),
       eligibility: CandidateEligibility.fromJson(
@@ -103,13 +161,14 @@ class MatchCandidate {
       financial: MatchFinancial.fromJson(
         json['financial'] as Map<String, dynamic>,
       ),
-      partners: (json['partners'] as List<dynamic>)
+      partners: (json['partners'] as List<dynamic>? ?? const [])
           .map(
             (partner) =>
                 RecommendedPartner.fromJson(partner as Map<String, dynamic>),
           )
           .toList(),
       partnerMessage: json['partner_message'] as String,
+      ml: ml == null ? null : MlResult.fromJson(ml as Map<String, dynamic>),
     );
   }
 }

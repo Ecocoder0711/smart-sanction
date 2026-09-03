@@ -1,7 +1,13 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_error_messages.dart';
+import '../../core/network/request_formatting.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
+import '../wizard/login_screen.dart';
 import 'matched_schemes_screen.dart';
 
 class SchemeIntakeScreen extends StatefulWidget {
@@ -34,13 +40,19 @@ class _SchemeIntakeScreenState extends State<SchemeIntakeScreen> {
 
   static const List<String> _categories = ['SC', 'ST', 'OBC', 'General'];
 
+  /// This flow does not collect a tenure, so it uses the backend default.
+  /// The EMI Calculator is integrated separately and may differ.
+  static const int _tenureMonths = 60;
+
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
+  final _apiService = ApiService();
 
   String? _selectedIncomeKey;
   String? _selectedPurposeKey;
   String? _selectedCategory;
   String? _categoryError;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -129,7 +141,15 @@ class _SchemeIntakeScreenState extends State<SchemeIntakeScreen> {
     );
   }
 
-  void _submit() {
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _submit() async {
+    // Validation is unchanged: the same four checks and the same inline
+    // category error.
     final isFormValid = _formKey.currentState!.validate();
     final isIncomeValid = _selectedIncomeKey != null;
     final isPurposeValid = _selectedPurposeKey != null;
@@ -141,12 +161,67 @@ class _SchemeIntakeScreenState extends State<SchemeIntakeScreen> {
           : 'scheme_matching.category_error'.tr();
     });
 
-    if (isFormValid && isIncomeValid && isPurposeValid && isCategoryValid) {
+    if (!isFormValid || !isIncomeValid || !isPurposeValid || !isCategoryValid) {
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    final token = auth.token;
+    if (token == null) {
+      await _returnToLogin();
+      return;
+    }
+
+    // Only the amount and tenure are sent. The income bucket, category and
+    // purpose above stay display-only on purpose: the backend matches against
+    // the exact annual_income/category/gender already stored on the profile,
+    // and turning a bucket like "1-2.5 lakh" into a number would be invented
+    // data feeding real eligibility and ML. "purpose" has no backend field.
+    final requestedAmount = roundToPaise(
+      double.parse(_amountController.text.trim()),
+    );
+
+    setState(() => _isSubmitting = true);
+    try {
+      final result = await _apiService.fetchMatches(
+        requestedAmount: requestedAmount,
+        tenureMonths: _tenureMonths,
+        token: token,
+      );
+      if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const MatchedSchemesScreen()),
+        MaterialPageRoute(
+          builder: (context) => MatchedSchemesScreen(
+            candidates: result.candidates,
+            mlStatus: result.mlStatus,
+          ),
+        ),
       );
+    } on Exception catch (error) {
+      if (!mounted) return;
+      if (isUnauthorized(error)) {
+        await _returnToLogin();
+        return;
+      }
+      _showError(
+        describeApiError(error, fallbackKey: 'scheme_matching.match_failed'),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  /// Sends an expired session back to Login rather than to an empty result.
+  Future<void> _returnToLogin() async {
+    await context.read<AuthProvider>().logout();
+    if (!mounted) return;
+    _showError('auth.session_expired'.tr());
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -367,7 +442,9 @@ class _SchemeIntakeScreenState extends State<SchemeIntakeScreen> {
                           SizedBox(
                             height: 48,
                             child: ElevatedButton(
-                              onPressed: _submit,
+                              // Disabled while the request is in flight so a
+                              // second tap cannot submit twice.
+                              onPressed: _isSubmitting ? null : _submit,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.emeraldGreen,
                                 foregroundColor: Colors.white,
@@ -385,7 +462,20 @@ class _SchemeIntakeScreenState extends State<SchemeIntakeScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  const Icon(Icons.search, size: 20),
+                                  // Swaps in place of the search icon, at the
+                                  // same 20px box, so the button does not
+                                  // change size or reflow while loading.
+                                  if (_isSubmitting)
+                                    const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  else
+                                    const Icon(Icons.search, size: 20),
                                 ],
                               ),
                             ),

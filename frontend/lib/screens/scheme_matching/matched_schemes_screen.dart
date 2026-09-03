@@ -2,67 +2,40 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/match_candidate.dart';
 import '../auth/widgets/trust_footer.dart';
 import '../calculator/emi_calculator_screen.dart';
 
-class _MockMatch {
-  const _MockMatch({
-    required this.name,
-    required this.matchScore,
-    required this.loanLimit,
-    required this.interestRate,
-    required this.emi,
-    required this.loanLimitValue,
-    required this.interestRateValue,
-  });
+/// Formats rupee amounts the way the mock strings did: grouped, no paise.
+final NumberFormat _rupees = NumberFormat.currency(
+  locale: 'en_IN',
+  symbol: '₹',
+  decimalDigits: 0,
+);
 
-  final String name;
-  final int matchScore;
-  final String loanLimit;
-  final String interestRate;
-  final String emi;
-
-  // Raw numeric values (the fields above are pre-formatted display strings)
-  // so "Calculate Loan" can pass real numbers to EmiCalculatorScreen.
-  final double loanLimitValue;
-  final double interestRateValue;
+/// Renders a stored rate without trailing zeros: 5.2500 -> "5.25", 7 -> "7".
+String _formatRate(double rate) {
+  final text = rate.toStringAsFixed(2);
+  return text.endsWith('.00') ? text.substring(0, text.length - 3) : text;
 }
 
 class MatchedSchemesScreen extends StatelessWidget {
-  const MatchedSchemesScreen({super.key});
+  const MatchedSchemesScreen({
+    super.key,
+    required this.candidates,
+    this.mlStatus = 'unavailable',
+  });
+
+  /// Eligible candidates from `POST /api/match`, in backend order.
+  ///
+  /// That order is the ranking: the service sorts by `ml.match_score` when ML
+  /// supplied one, so this list is rendered as-is and never re-sorted here.
+  final List<MatchCandidate> candidates;
+
+  /// `"available"` or `"unavailable"`, straight from the response.
+  final String mlStatus;
 
   static const Color _backgroundColor = Color(0xFFF9FAFB);
-
-  // Mock data only — no backend calls.
-  static const List<_MockMatch> _mockMatches = [
-    _MockMatch(
-      name: 'First Home Owner Grant Plus',
-      matchScore: 98,
-      loanLimit: '₹5,00,000',
-      interestRate: '8.5%',
-      emi: '₹10,200',
-      loanLimitValue: 500000,
-      interestRateValue: 8.5,
-    ),
-    _MockMatch(
-      name: 'Regional Housing Support Initiative',
-      matchScore: 92,
-      loanLimit: '₹8,00,000',
-      interestRate: '7.25%',
-      emi: '₹15,400',
-      loanLimitValue: 800000,
-      interestRateValue: 7.25,
-    ),
-    _MockMatch(
-      name: 'Family Density Growth Fund',
-      matchScore: 85,
-      loanLimit: '₹12,00,000',
-      interestRate: '9.0%',
-      emi: '₹21,600',
-      loanLimitValue: 1200000,
-      interestRateValue: 9.0,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -115,10 +88,13 @@ class MatchedSchemesScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      for (final match in _mockMatches) ...[
-                        _MatchCard(match: match),
-                        const SizedBox(height: 16),
-                      ],
+                      if (candidates.isEmpty)
+                        const _EmptyResults()
+                      else
+                        for (final candidate in candidates) ...[
+                          _MatchCard(candidate: candidate),
+                          const SizedBox(height: 16),
+                        ],
                       const SizedBox(height: 8),
                       SizedBox(
                         width: double.infinity,
@@ -152,9 +128,9 @@ class MatchedSchemesScreen extends StatelessWidget {
 }
 
 class _MatchCard extends StatelessWidget {
-  const _MatchCard({required this.match});
+  const _MatchCard({required this.candidate});
 
-  final _MockMatch match;
+  final MatchCandidate candidate;
 
   static const Color _borderColor = Color(0xFFD1D5DB);
   static const Color _scoreBoxColor = Color(0xFFD9E3F4);
@@ -187,7 +163,7 @@ class _MatchCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        match.name,
+                        candidate.scheme.name,
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -216,7 +192,7 @@ class _MatchCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         '• ${'scheme_matching.loan_limit_prefix'.tr()}: '
-                        '${match.loanLimit}',
+                        '${_rupees.format(candidate.scheme.maxLoanLimit)}',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade700,
@@ -224,14 +200,17 @@ class _MatchCard extends StatelessWidget {
                       ),
                       Text(
                         '• ${'scheme_matching.interest_prefix'.tr()}: '
-                        '${match.interestRate}',
+                        '${_formatRate(candidate.scheme.interestRate)}%',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade700,
                         ),
                       ),
                       Text(
-                        '• ${'scheme_matching.emi_prefix'.tr()}: ${match.emi}',
+                        // Backend-calculated EMI at 60 months; never
+                        // recomputed here.
+                        '• ${'scheme_matching.emi_prefix'.tr()}: '
+                        '${_rupees.format(candidate.financial.emi)}',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.grey.shade700,
@@ -245,9 +224,10 @@ class _MatchCard extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => EmiCalculatorScreen(
-                                initialPrincipal: match.loanLimitValue,
-                                interestRate: match.interestRateValue,
-                                schemeName: match.name,
+                                initialPrincipal:
+                                    candidate.scheme.maxLoanLimit,
+                                interestRate: candidate.scheme.interestRate,
+                                schemeName: candidate.scheme.name,
                               ),
                             ),
                           );
@@ -293,10 +273,20 @@ class _MatchCard extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
-                            _MatchScoreRing(score: match.matchScore),
+                            // match_score is the scheme-level fit and is the
+                            // only score that belongs on a per-scheme card.
+                            // approval_probability is application-level --
+                            // identical for every candidate in one response --
+                            // so it is deliberately not shown here.
+                            _MatchScoreRing(
+                              matchScore: candidate.ml?.matchScore,
+                            ),
                             const SizedBox(height: 8),
                             Text(
-                              'scheme_matching.match_score_label'.tr(),
+                              candidate.ml?.matchScore == null
+                                  ? 'scheme_matching.score_unavailable_label'
+                                        .tr()
+                                  : 'scheme_matching.match_score_label'.tr(),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -320,12 +310,18 @@ class _MatchCard extends StatelessWidget {
 }
 
 class _MatchScoreRing extends StatelessWidget {
-  const _MatchScoreRing({required this.score});
+  const _MatchScoreRing({required this.matchScore});
 
-  final int score;
+  /// Scheme-level fit in `[0, 1]`, or null when ML is unavailable.
+  final double? matchScore;
 
   @override
   Widget build(BuildContext context) {
+    final score = matchScore;
+    // No score: the ring renders empty with a dash rather than 0% or an
+    // invented number, so an unavailable model never reads as a bad match.
+    final percent = score == null ? null : (score * 100).round();
+
     return SizedBox(
       width: 64,
       height: 64,
@@ -336,18 +332,81 @@ class _MatchScoreRing extends StatelessWidget {
             width: 64,
             height: 64,
             child: CircularProgressIndicator(
-              value: score / 100,
+              value: percent == null ? 0 : percent / 100,
               strokeWidth: 4,
               backgroundColor: const Color(0xFFD1D5DB),
               valueColor: const AlwaysStoppedAnimation(AppColors.emeraldGreen),
             ),
           ),
           Text(
-            '$score%',
+            percent == null
+                ? 'scheme_matching.score_unavailable'.tr()
+                : '$percent%',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: AppColors.deepNavy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when the backend legitimately matched nothing (HTTP 200, zero
+/// candidates). Uses the same card shell, spacing and colours as a result
+/// card so the screen keeps its shape.
+class _EmptyResults extends StatelessWidget {
+  const _EmptyResults();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _MatchCard._borderColor),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.search_off, size: 40, color: Colors.grey.shade500),
+          const SizedBox(height: 12),
+          Text(
+            'scheme_matching.empty_title'.tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: AppColors.deepNavy,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'scheme_matching.empty_subtitle'.tr(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Pops back to the intake form, the same destination as the
+          // screen's existing "previous step" button.
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.deepNavy,
+              side: const BorderSide(color: _MatchCard._borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'scheme_matching.empty_edit_button'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
