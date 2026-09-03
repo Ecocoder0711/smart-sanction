@@ -1,16 +1,19 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/network/api_error_messages.dart';
+import '../../core/network/directions_launcher.dart';
 import '../../models/match_candidate.dart';
+import '../../models/nearby_bank.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../auth/widgets/trust_footer.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../wizard/login_screen.dart';
+import 'widgets/bank_map.dart';
 
 const Color _borderColor = Color(0xFFD1D5DB);
 
@@ -45,7 +48,6 @@ class NearbyBanksScreen extends StatefulWidget {
 
 class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
   static const Color _backgroundColor = Color(0xFFF9FAFB);
-  static const Color _mapBackgroundColor = Color(0xFFDCE4FB);
 
   /// Routed partners from `/api/match`, already active, in-quota, within the
   /// configured radius, nearest-K bounded and ordered by health score. The
@@ -55,32 +57,126 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
 
   /// Selection is local until the draft is saved. Choosing a centre never
   /// submits anything on its own.
+  ///
+  /// Only ever a registered partner's id. A real OpenStreetMap bank cannot
+  /// reach this field, which is what keeps it out of the saved draft.
   int? _selectedPartnerId;
 
   late final ApiService _apiService = widget.apiService ?? ApiService();
   bool _isSavingDraft = false;
 
-  /// Opens Google Maps at the branch's real coordinates.
+  final GlobalKey<BankMapState> _mapKey = GlobalKey<BankMapState>();
+
+  /// Which marker is highlighted. Namespaced ("partner-3" vs an OSM id) so
+  /// the two datasets can never collide on an integer id.
+  String? _selectedMarkerId;
+
+  /// Real OpenStreetMap branches, loaded independently of the partner list so
+  /// a discovery outage cannot take the routed partners down with it.
+  List<NearbyBank> _banks = const [];
+  bool _isLoadingBanks = false;
+  String? _banksError;
+
+  /// True when more branches exist inside the radius than the backend
+  /// returns, so the list can say so instead of looking complete.
+  bool _banksCapped = false;
+  int _banksDiscovered = 0;
+
+  /// How far around the applicant real branches are discovered.
   ///
-  /// The previous version searched by bank name, which cannot resolve a
-  /// branch reliably -- several partners share a name, and one is called
-  /// "GovService Agency #42".
-  Future<void> _openDirections(RecommendedPartner partner) async {
-    final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1'
-      '&query=${partner.latitude},${partner.longitude}',
-    );
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('nearby_banks.directions_unavailable'.tr())),
+  /// Sent explicitly rather than relying on the backend default, so this
+  /// screen's behaviour is visible here. Deliberately distinct from the
+  /// backend's 50 km channel-partner routing radius, which is a different
+  /// system answering a different question and is untouched.
+  static const double _discoveryRadiusKm = 40;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNearbyBanks();
+  }
+
+  /// The applicant's stored coordinates, or null if they registered with a
+  /// state and district instead of GPS.
+  ///
+  /// Read from the profile already loaded into AuthProvider — no second GPS
+  /// permission prompt, and no invented fallback centre.
+  ({double latitude, double longitude})? get _userLocation {
+    final user = context.read<AuthProvider>().user;
+    final latitude = user?['latitude'];
+    final longitude = user?['longitude'];
+    if (latitude is num && longitude is num) {
+      return (latitude: latitude.toDouble(), longitude: longitude.toDouble());
+    }
+    return null;
+  }
+
+  Future<void> _loadNearbyBanks() async {
+    final location = _userLocation;
+    // No coordinates means no query: there is no honest centre to search
+    // around, and guessing one would put the applicant in another city.
+    if (location == null) return;
+
+    setState(() {
+      _isLoadingBanks = true;
+      _banksError = null;
+    });
+    try {
+      final result = await _apiService.fetchNearbyBanks(
+        latitude: location.latitude,
+        longitude: location.longitude,
+        radiusKm: _discoveryRadiusKm,
       );
+      if (!mounted) return;
+      setState(() {
+        _banks = result.items;
+        _banksCapped = result.capped;
+        _banksDiscovered = result.discovered;
+      });
+    } on Exception catch (error) {
+      if (!mounted) return;
+      // Discovery failing is a section-level problem, never a screen-level
+      // one: the routed partners below are unaffected and stay rendered.
+      setState(
+        () => _banksError = describeApiError(
+          error,
+          fallbackKey: 'nearby_banks.banks_failed',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingBanks = false);
+    }
+  }
+
+  /// Opens external directions to an exact coordinate.
+  ///
+  /// Never a name search: several partners share a bank name, and
+  /// OpenStreetMap has three separate "State Bank of India" entries within
+  /// 2 km of the demo location. Works identically for a real OSM bank and a
+  /// registered partner, since both carry real coordinates.
+  Future<void> _openDirections({
+    required double latitude,
+    required double longitude,
+    required String label,
+  }) async {
+    final launched = await launchDirections(
+      latitude: latitude,
+      longitude: longitude,
+      label: label,
+    );
+    // Reported only after every candidate scheme genuinely failed to launch.
+    if (!launched && mounted) {
+      _showMessage('nearby_banks.directions_unavailable'.tr());
     }
   }
 
   void _selectCenter(RecommendedPartner partner) {
-    setState(() => _selectedPartnerId = partner.id);
+    setState(() {
+      _selectedPartnerId = partner.id;
+      _selectedMarkerId = 'partner-${partner.id}';
+    });
+    // Bring the chosen branch into view without changing the zoom level.
+    _mapKey.currentState?.moveTo(LatLng(partner.latitude, partner.longitude));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -90,6 +186,16 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
         ),
       ),
     );
+  }
+
+  /// Highlights whichever card a tapped marker belongs to.
+  ///
+  /// Tapping a real-bank marker highlights it only: it is not a selection,
+  /// because a discovered bank can never become the application's partner.
+  void _onMarkerTap(BankMapMarker marker) {
+    setState(() => _selectedMarkerId = marker.id);
+    if (marker.kind == MapMarkerKind.user) return;
+    _showMessage(marker.label);
   }
 
   /// Persists the applicant's work as a real draft, then leaves.
@@ -157,6 +263,133 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
       context,
       MaterialPageRoute(builder: (context) => const LoginScreen()),
       (route) => false,
+    );
+  }
+
+  /// The map, or an honest explanation of why there isn't one.
+  Widget _buildMap(BuildContext context) {
+    final location = _userLocation;
+    if (location == null) {
+      return const _LocationRequiredCard();
+    }
+
+    // Tall enough to be readable, capped so the list below stays reachable
+    // without scrolling past a full screen of map.
+    final height = (MediaQuery.of(context).size.height * 0.32).clamp(
+      220.0,
+      320.0,
+    );
+
+    return BankMap(
+      key: _mapKey,
+      height: height,
+      centre: LatLng(location.latitude, location.longitude),
+      selectedMarkerId: _selectedMarkerId,
+      onMarkerTap: _onMarkerTap,
+      markers: BankMapMarker.build(
+        userLatitude: location.latitude,
+        userLongitude: location.longitude,
+        banks: _banks,
+        partners: _partners,
+      ),
+    );
+  }
+
+  /// "Banks near you" -- real OpenStreetMap branches.
+  ///
+  /// Deliberately shows no quota, NPA, Partner Score, or Select Center: we
+  /// know where these branches are and nothing about how they operate.
+  Widget _buildRealBanksSection() {
+    final location = _userLocation;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'nearby_banks.real_banks_header'.tr(),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.deepNavy,
+                ),
+              ),
+            ),
+            if (_banks.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.softGray,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'nearby_banks.banks_found_badge'.tr(
+                    namedArgs: {'count': _banks.length.toString()},
+                  ),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'nearby_banks.real_banks_subtitle'.tr(),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        // Says so when the neighbourhood holds more branches than are shown,
+        // rather than letting the nearest 50 read as the complete picture.
+        if (_banksCapped) ...[
+          const SizedBox(height: 4),
+          Text(
+            'nearby_banks.banks_capped_note'.tr(
+              namedArgs: {
+                'shown': _banks.length.toString(),
+                'total': _banksDiscovered.toString(),
+              },
+            ),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        if (location == null)
+          _SectionNotice(message: 'nearby_banks.banks_need_location'.tr())
+        else if (_isLoadingBanks)
+          const _SectionLoading()
+        else if (_banksError != null)
+          _SectionNotice(
+            message: _banksError!,
+            onRetry: _loadNearbyBanks,
+          )
+        else if (_banks.isEmpty)
+          _SectionNotice(message: 'nearby_banks.banks_empty'.tr())
+        else
+          for (final bank in _banks) ...[
+            _RealBankCard(
+              bank: bank,
+              isHighlighted: bank.osmId == _selectedMarkerId,
+              onDirections: () => _openDirections(
+                latitude: bank.latitude,
+                longitude: bank.longitude,
+                label: bank.name,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+      ],
     );
   }
 
@@ -243,19 +476,21 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        _StaticMapPlaceholder(
-                          backgroundColor: _mapBackgroundColor,
-                        ),
+                        _buildMap(context),
+                        const SizedBox(height: 24),
+                        _buildRealBanksSection(),
                         const SizedBox(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'nearby_banks.partners_header'.tr(),
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.deepNavy,
+                            Expanded(
+                              child: Text(
+                                'nearby_banks.partners_header'.tr(),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.deepNavy,
+                                ),
                               ),
                             ),
                             Container(
@@ -282,6 +517,17 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 4),
+                        // Names what makes this list different from the one
+                        // above: these are the branches an application can
+                        // actually be routed through.
+                        Text(
+                          'nearby_banks.partners_subtitle'.tr(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         if (_partners.isEmpty)
                           _EmptyPartners(
@@ -294,7 +540,11 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                               partner: partner,
                               isSelected: partner.id == _selectedPartnerId,
                               onSelect: () => _selectCenter(partner),
-                              onDirections: () => _openDirections(partner),
+                              onDirections: () => _openDirections(
+                                latitude: partner.latitude,
+                                longitude: partner.longitude,
+                                label: partner.bankName,
+                              ),
                             ),
                             const SizedBox(height: 12),
                           ],
@@ -377,120 +627,74 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
   }
 }
 
-class _StaticMapPlaceholder extends StatelessWidget {
-  const _StaticMapPlaceholder({required this.backgroundColor});
-
-  final Color backgroundColor;
+/// Shown in place of the map when the applicant registered with a state and
+/// district rather than GPS.
+///
+/// No fallback centre is invented: a map of somebody else's city would be
+/// worse than no map, and Overpass is not queried at all in this state.
+class _LocationRequiredCard extends StatelessWidget {
+  const _LocationRequiredCard();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 250,
-      clipBehavior: Clip.antiAlias,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
       ),
-      child: Stack(
+      child: Column(
         children: [
-          Positioned(
-            top: 12,
-            left: 12,
-            right: 90,
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.place, size: 18, color: AppColors.deepNavy),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'nearby_banks.your_location_label'.tr(),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.deepNavy,
-                          ),
-                        ),
-                        Text(
-                          'nearby_banks.your_location_saved'.tr(),
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+          Icon(Icons.location_off_outlined, size: 32, color: Colors.grey.shade500),
+          const SizedBox(height: 12),
+          Text(
+            'nearby_banks.map_location_required'.tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.deepNavy,
             ),
           ),
-          const Positioned(
-            left: 60,
-            top: 90,
-            child: Icon(
-              Icons.location_on,
-              size: 30,
-              color: AppColors.emeraldGreen,
-            ),
+          const SizedBox(height: 6),
+          Text(
+            'nearby_banks.map_location_required_hint'.tr(),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.4),
           ),
-          Positioned(
-            left: 118,
-            top: 120,
-            child: Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: _borderColor),
-              ),
-              child: const Icon(
-                Icons.image,
-                size: 16,
-                color: AppColors.deepNavy,
-              ),
-            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Placeholder row while real branches are being discovered.
+class _SectionLoading extends StatelessWidget {
+  const _SectionLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          const Positioned(
-            left: 150,
-            top: 92,
-            child: Icon(Icons.location_on, size: 34, color: AppColors.errorRed),
-          ),
-          const Positioned(
-            left: 95,
-            top: 155,
-            child: Icon(Icons.location_on, size: 32, color: AppColors.deepNavy),
-          ),
-          Positioned(
-            right: 12,
-            top: 12,
-            child: Column(
-              children: [
-                _MapControlButton(icon: Icons.add),
-                const SizedBox(height: 8),
-                _MapControlButton(icon: Icons.remove),
-                const SizedBox(height: 8),
-                _MapControlButton(icon: Icons.gps_fixed),
-              ],
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              'nearby_banks.banks_loading'.tr(),
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
           ),
         ],
@@ -499,28 +703,144 @@ class _StaticMapPlaceholder extends StatelessWidget {
   }
 }
 
-class _MapControlButton extends StatelessWidget {
-  const _MapControlButton({required this.icon});
+/// One-line explanation for an empty, unavailable, or retryable section.
+///
+/// Scoped to the real-bank section: the registered partners below render
+/// regardless of what this says.
+class _SectionNotice extends StatelessWidget {
+  const _SectionNotice({required this.message, this.onRetry});
 
-  final IconData icon;
+  final String message;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32,
-      height: 32,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700, height: 1.4),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.deepNavy,
+                side: const BorderSide(color: AppColors.deepNavy),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text('nearby_banks.banks_retry'.tr()),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A real bank branch from OpenStreetMap.
+///
+/// Carries a name, a distance, an optional address, and Directions -- and
+/// nothing else. There is deliberately no Select Center and no Partner
+/// Score: this branch is not a registered channel partner, and inventing
+/// operational figures for it would misrepresent public map data.
+class _RealBankCard extends StatelessWidget {
+  const _RealBankCard({
+    required this.bank,
+    required this.isHighlighted,
+    required this.onDirections,
+  });
+
+  final NearbyBank bank;
+  final bool isHighlighted;
+  final VoidCallback onDirections;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isHighlighted ? AppColors.emeraldGreen : _borderColor,
+          width: isHighlighted ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(Icons.location_on, size: 18, color: AppColors.emeraldGreen),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  bank.name,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.deepNavy,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'nearby_banks.distance_km'.tr(
+                    namedArgs: {'km': _formatKm(bank.distanceKm)},
+                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                // Only when OpenStreetMap genuinely has address tags; most
+                // branches have none and simply show nothing here.
+                if (bank.address != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    bank.address!,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onDirections,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _borderColor),
+              ),
+              child: Tooltip(
+                message: 'nearby_banks.directions_button'.tr(),
+                child: const Icon(
+                  Icons.directions_outlined,
+                  size: 18,
+                  color: AppColors.deepNavy,
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: Icon(icon, size: 16, color: AppColors.deepNavy),
     );
   }
 }

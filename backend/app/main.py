@@ -8,6 +8,7 @@ from app.api.routes.calculator import router as calculator_router
 from app.api.routes.eligibility import router as eligibility_router
 from app.api.routes.health import router as health_router
 from app.api.routes.matching import router as matching_router
+from app.api.routes.nearby_banks import router as nearby_banks_router
 from app.api.routes.partners import router as partners_router
 from app.api.routes.schemes import router as schemes_router
 from app.api.routes.users import router as users_router
@@ -37,5 +38,6 @@ app.include_router(calculator_router)
 app.include_router(matching_router)
 app.include_router(schemes_router)
 app.include_router(partners_router)
+app.include_router(nearby_banks_router)
 app.include_router(users_router)
 app.include_router(applications_router)

@@ -205,6 +205,25 @@
     "empty_back_button": "Go back",
     "selected_badge": "Selected",
     "save_draft_failed": "Could not save the draft. Please try again.",
-    "lock_notice_v2": "Selecting a centre is saved with your draft. Nothing is submitted until you choose to apply."
+    "lock_notice_v2": "Selecting a centre is saved with your draft. Nothing is submitted until you choose to apply.",
+    "real_banks_header": "Banks Near You",
+    "real_banks_subtitle": "Real branches within 40 km, from OpenStreetMap. These are not registered processing partners.",
+    "banks_found_badge": "{count} found",
+    "banks_loading": "Finding banks near you…",
+    "banks_empty": "No mapped bank branches were found within 40 km of your location.",
+    "banks_failed": "Could not load nearby banks right now.",
+    "banks_retry": "Try again",
+    "banks_need_location": "Nearby banks need your GPS location, which isn't saved on your profile.",
+    "directions_button": "Directions",
+    "map_you_label": "You",
+    "map_legend_bank": "Nearby bank",
+    "map_legend_partner": "Processing partner",
+    "map_zoom_in": "Zoom in",
+    "map_zoom_out": "Zoom out",
+    "map_recenter": "Recentre on me",
+    "map_location_required": "Map needs your location",
+    "map_location_required_hint": "You registered with a state and district instead of GPS, so we can't place you on the map.",
+    "partners_subtitle": "Registered channel partners we can route your application through, ranked by Partner Score.",
+    "banks_capped_note": "Showing the {shown} nearest of {total} branches found within 40 km."
   }
 }
