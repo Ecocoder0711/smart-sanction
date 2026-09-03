@@ -169,17 +169,21 @@
     "subtitle": "अपने आवेदन को अंतिम रूप देने के लिए नज़दीकी चैनल भागीदारों की समीक्षा करें। चयन दैनिक उपलब्ध कोटे पर निर्भर करता है।",
     "step_label": "चरण 4 का 4: केंद्र चयन",
     "your_location_label": "आपका स्थान",
-    "your_location_address": "123 वित्तीय जिला, राजधानी शहर",
     "partners_header": "नज़दीकी भागीदार",
     "partners_found_badge": "{count} मिले",
-    "quota_available": "कोटा उपलब्ध",
-    "quota_exhausted": "कोटा समाप्त",
     "select_center_button": "केंद्र चुनें",
-    "unavailable_button": "आज अनुपलब्ध",
     "lock_notice": "केंद्र चुने जाने के बाद आपका आवेदन लॉक हो जाएगा।",
     "save_draft_button": "मसौदा सहेजें",
     "save_draft_snackbar": "योजना मसौदे में सहेजी गई!",
     "directions_unavailable": "Google Maps नहीं खोला जा सका",
-    "center_selected_snackbar": "{name} चयनित"
+    "center_selected_snackbar": "{name} चयनित",
+    "distance_km": "{km} किमी दूर",
+    "quota_available_amount": "{amount} उपलब्ध",
+    "partner_score_label": "पार्टनर स्कोर",
+    "your_location_saved": "आपके सहेजे गए स्थान का उपयोग",
+    "empty_title": "दिखाने के लिए कोई पार्टनर नहीं",
+    "empty_no_scheme": "अपने निकटतम शाखाएँ देखने के लिए इसे किसी मिलती-जुलती योजना से खोलें।",
+    "empty_back_button": "वापस जाएँ",
+    "selected_badge": "चयनित"
   }
 }

@@ -55,6 +55,8 @@ class RecommendedPartner {
     required this.latitude,
     required this.longitude,
     required this.distanceKm,
+    this.quotaRemaining,
+    this.npaPercentage,
     this.healthScore,
   });
 
@@ -63,7 +65,21 @@ class RecommendedPartner {
   final String branchCode;
   final double latitude;
   final double longitude;
+
+  /// Great-circle distance from the applicant's stored coordinates, in
+  /// **kilometres**.
   final double distanceKm;
+
+  /// Disbursement quota the branch still has, in rupees.
+  ///
+  /// `/api/match` only returns partners with quota above zero, so this is
+  /// always positive there. It is a branch-level figure and says nothing
+  /// about the maximum size of any single loan.
+  final double? quotaRemaining;
+
+  /// Non-performing-asset percentage, `[0, 100]`. One of the inputs to
+  /// [healthScore]; exposed for completeness rather than for display.
+  final double? npaPercentage;
 
   /// Deterministic Partner Health Score in `[0, 1]` over the branch's NPA,
   /// remaining quota, and distance. Not an ML output, and unrelated to
@@ -73,7 +89,10 @@ class RecommendedPartner {
   final double? healthScore;
 
   factory RecommendedPartner.fromJson(Map<String, dynamic> json) {
-    final healthScore = json['health_score'];
+    // Decimal fields arrive as JSON strings ("5000000.00"), so every optional
+    // numeric goes through the same tolerant conversion.
+    double? optionalDouble(Object? value) =>
+        value == null ? null : double.tryParse(value.toString());
 
     return RecommendedPartner(
       id: json['id'] as int,
@@ -82,9 +101,9 @@ class RecommendedPartner {
       latitude: double.parse(json['latitude'].toString()),
       longitude: double.parse(json['longitude'].toString()),
       distanceKm: double.parse(json['distance_km'].toString()),
-      healthScore: healthScore == null
-          ? null
-          : double.parse(healthScore.toString()),
+      quotaRemaining: optionalDouble(json['quota_remaining']),
+      npaPercentage: optionalDouble(json['npa_percentage']),
+      healthScore: optionalDouble(json['health_score']),
     );
   }
 }

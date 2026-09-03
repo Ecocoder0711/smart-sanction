@@ -3,29 +3,32 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/match_candidate.dart';
 import '../auth/widgets/trust_footer.dart';
 import '../dashboard/dashboard_screen.dart';
 
 const Color _borderColor = Color(0xFFD1D5DB);
 
-enum _ActionButtonStyle { filled, outlined, disabled }
+/// Rupee amounts, grouped Indian-style with no paise.
+final NumberFormat _rupees = NumberFormat.currency(
+  locale: 'en_IN',
+  symbol: '\u20B9',
+  decimalDigits: 0,
+);
 
-class _MockPartner {
-  const _MockPartner({
-    required this.name,
-    required this.distanceLabel,
-    required this.quotaAvailable,
-    required this.actionStyle,
-  });
-
-  final String name;
-  final String distanceLabel;
-  final bool quotaAvailable;
-  final _ActionButtonStyle actionStyle;
-}
+/// One decimal is enough to separate branches that sit hundreds of metres
+/// apart, which is the spread the router actually returns.
+String _formatKm(double km) => km.toStringAsFixed(1);
 
 class NearbyBanksScreen extends StatefulWidget {
-  const NearbyBanksScreen({super.key});
+  /// Carries the matched scheme whose routed partners this screen lists.
+  ///
+  /// Optional so the Dashboard's generic calculator route still compiles;
+  /// without a candidate there are no partners to show and the screen says so
+  /// rather than falling back to sample data.
+  const NearbyBanksScreen({super.key, this.candidate});
+
+  final MatchCandidate? candidate;
 
   @override
   State<NearbyBanksScreen> createState() => _NearbyBanksScreenState();
@@ -35,31 +38,25 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
   static const Color _backgroundColor = Color(0xFFF9FAFB);
   static const Color _mapBackgroundColor = Color(0xFFDCE4FB);
 
-  // Mock data only — no backend calls.
-  static const List<_MockPartner> _mockPartners = [
-    _MockPartner(
-      name: 'First National Bank - Main Branch',
-      distanceLabel: '0.8 miles away',
-      quotaAvailable: true,
-      actionStyle: _ActionButtonStyle.filled,
-    ),
-    _MockPartner(
-      name: 'Community Credit Union',
-      distanceLabel: '1.2 miles away',
-      quotaAvailable: false,
-      actionStyle: _ActionButtonStyle.disabled,
-    ),
-    _MockPartner(
-      name: 'GovService Agency #42',
-      distanceLabel: '2.5 miles away',
-      quotaAvailable: true,
-      actionStyle: _ActionButtonStyle.outlined,
-    ),
-  ];
+  /// Routed partners from `/api/match`, already active, in-quota, within the
+  /// configured radius, nearest-K bounded and ordered by health score. The
+  /// order is the backend's ranking and is rendered as-is.
+  List<RecommendedPartner> get _partners =>
+      widget.candidate?.partners ?? const [];
 
-  Future<void> _openDirections(String name) async {
+  /// Selection is local to this screen: no applicant-facing endpoint exists
+  /// for persisting a chosen partner, so nothing here claims it was saved.
+  int? _selectedPartnerId;
+
+  /// Opens Google Maps at the branch's real coordinates.
+  ///
+  /// The previous version searched by bank name, which cannot resolve a
+  /// branch reliably -- several partners share a name, and one is called
+  /// "GovService Agency #42".
+  Future<void> _openDirections(RecommendedPartner partner) async {
     final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(name)}',
+      'https://www.google.com/maps/search/?api=1'
+      '&query=${partner.latitude},${partner.longitude}',
     );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -70,11 +67,14 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
     }
   }
 
-  void _selectCenter(String name) {
+  void _selectCenter(RecommendedPartner partner) {
+    setState(() => _selectedPartnerId = partner.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'nearby_banks.center_selected_snackbar'.tr(namedArgs: {'name': name}),
+          'nearby_banks.center_selected_snackbar'.tr(
+            namedArgs: {'name': partner.bankName},
+          ),
         ),
       ),
     );
@@ -201,7 +201,7 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                               child: Text(
                                 'nearby_banks.partners_found_badge'.tr(
                                   namedArgs: {
-                                    'count': _mockPartners.length.toString(),
+                                    'count': _partners.length.toString(),
                                   },
                                 ),
                                 style: TextStyle(
@@ -214,14 +214,21 @@ class _NearbyBanksScreenState extends State<NearbyBanksScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        for (final partner in _mockPartners) ...[
-                          _PartnerCard(
-                            partner: partner,
-                            onSelect: () => _selectCenter(partner.name),
-                            onDirections: () => _openDirections(partner.name),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
+                        if (_partners.isEmpty)
+                          _EmptyPartners(
+                            message: widget.candidate?.partnerMessage,
+                            onBack: () => Navigator.pop(context),
+                          )
+                        else
+                          for (final partner in _partners) ...[
+                            _PartnerCard(
+                              partner: partner,
+                              isSelected: partner.id == _selectedPartnerId,
+                              onSelect: () => _selectCenter(partner),
+                              onDirections: () => _openDirections(partner),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                         const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(16),
@@ -351,7 +358,7 @@ class _StaticMapPlaceholder extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'nearby_banks.your_location_address'.tr(),
+                          'nearby_banks.your_location_saved'.tr(),
                           style: TextStyle(
                             fontSize: 10,
                             color: Colors.grey.shade600,
@@ -451,11 +458,13 @@ class _MapControlButton extends StatelessWidget {
 class _PartnerCard extends StatelessWidget {
   const _PartnerCard({
     required this.partner,
+    required this.isSelected,
     required this.onSelect,
     required this.onDirections,
   });
 
-  final _MockPartner partner;
+  final RecommendedPartner partner;
+  final bool isSelected;
   final VoidCallback onSelect;
   final VoidCallback onDirections;
 
@@ -466,7 +475,10 @@ class _PartnerCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _borderColor),
+        border: Border.all(
+          color: isSelected ? AppColors.deepNavy : _borderColor,
+          width: isSelected ? 2 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,19 +487,31 @@ class _PartnerCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  partner.name,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: partner.quotaAvailable
-                        ? AppColors.deepNavy
-                        : Colors.grey.shade500,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      partner.bankName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.deepNavy,
+                      ),
+                    ),
+                    // Several partners share a bank name; the branch code is
+                    // what tells them apart.
+                    Text(
+                      partner.branchCode,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              _QuotaPill(available: partner.quotaAvailable),
+              _QuotaPill(quotaRemaining: partner.quotaRemaining),
             ],
           ),
           const SizedBox(height: 6),
@@ -496,60 +520,59 @@ class _PartnerCard extends StatelessWidget {
               Icon(Icons.map_outlined, size: 14, color: Colors.grey.shade500),
               const SizedBox(width: 4),
               Text(
-                partner.distanceLabel,
+                'nearby_banks.distance_km'.tr(
+                  namedArgs: {'km': _formatKm(partner.distanceKm)},
+                ),
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
+              if (partner.healthScore != null) ...[
+                const SizedBox(width: 12),
+                Icon(
+                  Icons.verified_outlined,
+                  size: 14,
+                  color: Colors.grey.shade500,
+                ),
+                const SizedBox(width: 4),
+                // Deterministic NPA/quota/proximity score from the backend --
+                // not an ML output and never recomputed here.
+                Text(
+                  '${'nearby_banks.partner_score_label'.tr()}: '
+                  '${(partner.healthScore! * 100).round()}',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
-          if (partner.actionStyle == _ActionButtonStyle.disabled)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.softGray,
-                  foregroundColor: Colors.grey.shade500,
-                  disabledBackgroundColor: AppColors.softGray,
-                  disabledForegroundColor: Colors.grey.shade500,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text('nearby_banks.unavailable_button'.tr()),
-              ),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: partner.actionStyle == _ActionButtonStyle.filled
-                      ? ElevatedButton(
-                          onPressed: onSelect,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.deepNavy,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
+          Row(
+            children: [
+              Expanded(
+                child: isSelected
+                    ? ElevatedButton(
+                        onPressed: onSelect,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.deepNavy,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('nearby_banks.select_center_button'.tr()),
-                        )
-                      : OutlinedButton(
-                          onPressed: onSelect,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.deepNavy,
-                            side: const BorderSide(color: AppColors.deepNavy),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text('nearby_banks.select_center_button'.tr()),
                         ),
-                ),
+                        child: Text('nearby_banks.selected_badge'.tr()),
+                      )
+                    : OutlinedButton(
+                        onPressed: onSelect,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.deepNavy,
+                          side: const BorderSide(color: AppColors.deepNavy),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text('nearby_banks.select_center_button'.tr()),
+                      ),
+              ),
                 const SizedBox(width: 8),
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
@@ -576,14 +599,23 @@ class _PartnerCard extends StatelessWidget {
   }
 }
 
+/// Shows the branch's actual remaining disbursement quota.
+///
+/// The previous version was a boolean available/exhausted flag, but
+/// `/api/match` filters out zero-quota partners, so the exhausted state could
+/// never appear. The amount is a branch-level figure and deliberately makes no
+/// claim about the largest loan it could fund.
 class _QuotaPill extends StatelessWidget {
-  const _QuotaPill({required this.available});
+  const _QuotaPill({required this.quotaRemaining});
 
-  final bool available;
+  final double? quotaRemaining;
 
   @override
   Widget build(BuildContext context) {
-    final color = available ? AppColors.emeraldGreen : AppColors.errorRed;
+    final quota = quotaRemaining;
+    if (quota == null) return const SizedBox.shrink();
+
+    const color = AppColors.emeraldGreen;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -591,12 +623,80 @@ class _QuotaPill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        '• ${available ? 'nearby_banks.quota_available'.tr() : 'nearby_banks.quota_exhausted'.tr()}',
-        style: TextStyle(
+        '• ${'nearby_banks.quota_available_amount'.tr(namedArgs: {
+              'amount': _rupees.format(quota),
+            })}',
+        style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: color,
         ),
+      ),
+    );
+  }
+}
+
+/// Shown when there are no partners to list.
+///
+/// Covers three legitimate cases, all non-error: no branch inside the
+/// configured radius, an applicant whose profile has no coordinates (the
+/// wizard's manual-location path), and the Dashboard's generic calculator
+/// route, which has no scheme at all. The backend's own explanation is used
+/// when one is available rather than a message invented here.
+class _EmptyPartners extends StatelessWidget {
+  const _EmptyPartners({required this.message, required this.onBack});
+
+  final String? message;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.location_off_outlined, size: 40, color: Colors.grey.shade500),
+          const SizedBox(height: 12),
+          Text(
+            'nearby_banks.empty_title'.tr(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.deepNavy,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message ?? 'nearby_banks.empty_no_scheme'.tr(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: onBack,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.deepNavy,
+              side: const BorderSide(color: _borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'nearby_banks.empty_back_button'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

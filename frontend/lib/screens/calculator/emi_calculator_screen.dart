@@ -160,7 +160,11 @@ class _EmiCalculatorScreenState extends State<EmiCalculatorScreen> {
   void _goToNearbyBanks() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const NearbyBanksScreen()),
+      MaterialPageRoute(
+        // Carries the routed partners /api/match already returned, so the
+        // next screen needs no request of its own.
+        builder: (context) => NearbyBanksScreen(candidate: _candidate),
+      ),
     );
   }
 
